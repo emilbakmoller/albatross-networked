@@ -11,6 +11,7 @@
 #include <iostream>
 #include <getopt.h>
 #include <NTL/ZZ_pX.h>
+#include <asio.hpp>
 
 int main(int argc, char *argv[]) {
   int optc;
@@ -95,7 +96,7 @@ int main(int argc, char *argv[]) {
 
   if (ppvss) {
     ///////////////////////////////////////////////////////////////// test pvss
-    cout << "execution of ppvss\n\n";
+    cout << "Now executing ppvss\n\n";
     pvss_test(n,size);
   }
 

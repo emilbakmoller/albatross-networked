@@ -10,6 +10,8 @@
 #include <gmp.h>
 #include <NTL/ZZ_pX.h>
 
+#include <asio.hpp>
+
 #include "pvss.hpp"
 #include "proofs.hpp"
 #include "func.hpp"
@@ -235,6 +237,7 @@ void pvss_test(const int n, const int size) {
   // PARAMETERS
   int k = 128;
   ZZ p,q;
+  cout << "Now finding prime number\n\n";
   findprime(q,p,k,size-k);
   int t = n/3;
   int l = n-2*t;
