@@ -10,7 +10,6 @@
 #include <ctime>
 #include <iostream>
 #include <getopt.h>
-#include <NTL/ZZ_pX.h>
 
 int main(int argc, char *argv[]) {
   int optc;
@@ -20,19 +19,19 @@ int main(int argc, char *argv[]) {
   /* long options struct */
   const struct option long_opts[] =
   {
-    {"ppvss",                  optional_argument, NULL, 'p'},
-    {"comparison",             no_argument,       NULL, 'c'},
-    {"ffte",                   optional_argument, NULL, 'f'},
-    {"number_of_participants", required_argument, NULL, 'n'},
-    {"help",                   no_argument,       NULL, 'h'},
-    {NULL,                     0,                 NULL,  0 },
+    {"ppvss",                  optional_argument, nullptr, 'p'},
+    {"comparison",             no_argument,       nullptr, 'c'},
+    {"ffte",                   optional_argument, nullptr, 'f'},
+    {"number_of_participants", required_argument, nullptr, 'n'},
+    {"help",                   no_argument,       nullptr, 'h'},
+    {nullptr,                     0,                 nullptr,  0 },
   };
 
   const char *opt = "p::cf::n:h";
-  while ((optc = getopt_long(argc, argv, opt, long_opts, NULL)) != -1) {
+  while ((optc = getopt_long(argc, argv, opt, long_opts, nullptr)) != -1) {
     switch (optc) {
       case 'p':
-        if(optarg != NULL)
+        if(optarg != nullptr)
           size = atoi(optarg);
         ppvss = true;
         break;
@@ -40,7 +39,7 @@ int main(int argc, char *argv[]) {
         comp = true;
         break;
       case 'f':
-        if(optarg != NULL)
+        if(optarg != nullptr)
           size = atoi(optarg);
         ffte = true;
         break;
@@ -142,9 +141,9 @@ int main(int argc, char *argv[]) {
       // new w
       rootunity(w,n,q);
       // new vector
-      for (int i = 0; i < n; i++) {
-        random(coef[i]);
-        power(L[i],h,rep(coef[i]));
+      for (int j = 0; j < n; j++) {
+        random(coef[j]);
+        power(L[j], h, rep(coef[j]));
       }
 
       rec = clock();

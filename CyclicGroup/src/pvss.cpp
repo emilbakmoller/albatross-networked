@@ -1,13 +1,10 @@
 /* implementation of pvss protocol */
 #include <iostream>
 #include <cstdlib>
-#include <cstdbool>
 #include <ctime>
-#include <cmath>
 #include <unistd.h>
 #include <vector>
 
-#include <gmp.h>
 #include <NTL/ZZ_pX.h>
 
 #include "pvss.hpp"
@@ -43,7 +40,7 @@ pl_t *pl_alloc(const int n) {
   pl_t *pl;
   pl = new (nothrow) pl_t;
   if (!pl)
-    return NULL;
+    return nullptr;
   pl->n = n;
   pl->t = 0;
   pl->q = ZZ(0);
@@ -230,7 +227,7 @@ clock_t reconstruction(const int r, pl_t *pl) {
 
 void pvss_test(const int n, const int size) {
 
-  clock_t timetmp=0, setup_time=0, dist_time=0, decrypt_time=0,reco_time=0, all_time=0;
+  clock_t timetmp, setup_time, dist_time, decrypt_time=0,reco_time, all_time;
 
   // PARAMETERS
   int k = 128;
@@ -252,9 +249,7 @@ void pvss_test(const int n, const int size) {
   if (!pl)
     return;
   setup_time = setup(pl,sk,n,q,p,h);
-  if (!pl)
-    return;
-  // cout << endl << "sk : " << sk << endl;
+    // cout << endl << "sk : " << sk << endl;
 
 
   // DISTRIBUTION
@@ -280,7 +275,7 @@ void pvss_test(const int n, const int size) {
   pl->reco_parties = new int[r];
   Vec<ZZ_p> invsk;
   invsk.SetLength(r);
-  prng_init(time(NULL) + getpid());
+  prng_init(time(nullptr) + getpid());
   for (int i = 0; i < len; i++)
     tab[i] = i;
   for (int i = 0; i < r; i++) {
@@ -308,7 +303,7 @@ void pvss_test(const int n, const int size) {
     decrypt_time += clock() - timetmp;
     pl->sigtilde[i] = x[i][1];
     g[i][0]= pl->pk[id-1];
-    pl->dl.push_back(DLEQ());
+    pl->dl.emplace_back();
     pl->dl[i].prove(q,p,g[i],x[i],invsk[i]);
   }
   invsk.kill();

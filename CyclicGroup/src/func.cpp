@@ -1,5 +1,4 @@
 #include <cstdlib>
-#include <stdbool.h>
 
 #include "func.hpp"
 
@@ -55,7 +54,6 @@ void generator(ZZ_p& g, const ZZ& q) {
     g = ZZ_p(i);
     return;
   }
-  return;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

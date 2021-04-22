@@ -1,8 +1,6 @@
 #include <ctime>
 #include <iostream>
 #include <NTL/ZZ.h>
-#include <math.h>
-#include <stdbool.h>
 #include <unistd.h>
 
 #include "randomness_extraction.hpp"
@@ -84,7 +82,7 @@ const long n, const ZZ& q) {
 
 void bin_rand_vec(Vec<ZZ_p>& vec, const int n) {
   vec.SetLength(n);
-  prng_init(time(NULL) + getpid());
+  prng_init(time(nullptr) + getpid());
   do {
     for (int i = 0; i < n; i++)
       vec[i] = ZZ_p(rand() % 2);

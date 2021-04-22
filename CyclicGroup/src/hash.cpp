@@ -18,14 +18,14 @@ void string_to_ZZp(ZZ_p& output, const string& input) {
 
 string ZZp_to_string(const Vec<ZZ_p>& x, const Vec<ZZ_p>& a) {
   stringstream vecx, veca;
-  string vecxx, vecaa, s = "";
+  string vecxx, vecaa, s;
   char c;
-  for (ZZ_p xi : x) {
+  for (const ZZ_p& xi : x) {
     vecx << xi;
-    vecxx = vecxx + vecx.str();
+    vecxx += vecx.str();
   }
-  for (size_t i = 0; i < vecxx.length(); i++) {
-    c = vecxx[i];
+  for (char i : vecxx) {
+    c = i;
     switch(c) {
       case '[':
       case ']':
@@ -37,8 +37,8 @@ string ZZp_to_string(const Vec<ZZ_p>& x, const Vec<ZZ_p>& a) {
   }
   veca << a;
   vecaa = veca.str();
-  for (size_t i = 0; i < vecaa.length(); i++) {
-      c = vecaa[i];
+  for (char i : vecaa) {
+      c = i;
       switch(c) {
         case '[':
         case ']':
@@ -53,12 +53,12 @@ string ZZp_to_string(const Vec<ZZ_p>& x, const Vec<ZZ_p>& a) {
 
 string ZZp_to_string(const Vec<ZZ_p>& g, const Vec<ZZ_p>& x, const Vec<ZZ_p>& a) {
   stringstream vecg, vecx, veca;
-  string vecgg, vecxx, vecaa, s = "";
+  string vecgg, vecxx, vecaa, s;
   char c;
   vecg << g;
   vecgg = vecg.str();
-  for (size_t i = 0; i < vecgg.length(); i++) {
-    c = vecgg[i];
+  for (char i : vecgg) {
+    c = i;
     switch(c) {
       case '[':
       case ']':
@@ -70,8 +70,8 @@ string ZZp_to_string(const Vec<ZZ_p>& g, const Vec<ZZ_p>& x, const Vec<ZZ_p>& a)
   }
   vecx << x;
   vecxx = vecx.str();
-  for (size_t i = 0; i < vecxx.length(); i++) {
-    c = vecxx[i];
+  for (char i : vecxx) {
+    c = i;
     switch(c) {
       case '[':
       case ']':
@@ -83,8 +83,8 @@ string ZZp_to_string(const Vec<ZZ_p>& g, const Vec<ZZ_p>& x, const Vec<ZZ_p>& a)
   }
   veca << a;
   vecaa = veca.str();
-  for (size_t i = 0; i < vecaa.length(); i++) {
-      c = vecaa[i];
+  for (char i : vecaa) {
+      c = i;
       switch(c) {
         case '[':
         case ']':
