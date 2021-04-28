@@ -46,3 +46,5 @@ clock_t reconstruction(const int r, pl_t *pl);
 ////////////////////////////////////////////////////////////////////////////////
 
 void pvss_test(const int n, const int size);
+
+void alb_test(const int n, const int size);

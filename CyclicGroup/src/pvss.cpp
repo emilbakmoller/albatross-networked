@@ -3,7 +3,9 @@
 #include <cstdlib>
 #include <ctime>
 #include <unistd.h>
+#include <utility>
 #include <vector>
+#include <sstream>
 
 #include <NTL/ZZ_pX.h>
 
@@ -28,7 +30,7 @@ struct pl_t {
   ZZ p; // p = 2q+1
   ZZ_p h; // generator of G_q
   Vec<ZZ_p> pk; // publi keys
-  Vec<ZZ_p> sighat; // encrypted shares
+  Vec<ZZ_p> sighat; // encrypted shares  Map<pk, Vec<ZZ_p>>
   LDEI ld; // proof LDEI
   int *reco_parties; // reconstructing party's identifiants
   Vec<ZZ_p> sigtilde; // decrypted shares and their index
@@ -357,4 +359,93 @@ void pvss_test(const int n, const int size) {
   cout << "time for reconstructing the secrets: " << (float)reco_time/CLOCKS_PER_SEC << "s" << endl;
   cout << "\nglobal time: " << (float)all_time/CLOCKS_PER_SEC << "s\n\n";
   cout << "here we only timed elementary operations and we didn't timed the proofs\n\n";
+}
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////// ALBATROSS IMPL //////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+
+struct ledger_message {
+    int pid; // id of the party who posted this on the ledger
+    int type; // 0: pk, 1: encrypted share + proof
+    string content;
+
+    ledger_message(int _pid, int _type, string _content) {
+        pid = _pid;
+        type = _type;
+        content = _content; // TODO maybe use std::move later???
+    }
+};
+
+string ZZ_p_to_string(const ZZ_p &z) {
+    stringstream buffer;
+    buffer << z;
+    return buffer.str();
+}
+
+ZZ_p string_to_ZZ_p(string s) {
+    ZZ_p z;
+    z = to_ZZ_p(conv<ZZ>(s.c_str()));
+    return z;
+}
+
+
+ZZ_p generate_secret_key() {
+    ZZ_p sk;
+    random(sk);
+    while (IsZero(sk))
+        random(sk);
+    return sk;
+}
+
+ZZ_p generate_public_key(ZZ_p sk, const ZZ_p& h) {
+    ZZ_p pk;
+    power(pk, h, rep(sk));
+    return pk;
+}
+
+void alb_test(const int n, const int size) {
+    cout << "hello bitch 2" << endl;
+
+    vector<ledger_message> ledger;
+
+    clock_t timetmp, setup_time, dist_time, decrypt_time=0,reco_time, all_time;
+
+    // PARAMETERS
+    int k = 128;
+    ZZ p, q;
+    findprime(q, p, k, size - k);
+    int t = n / 3;
+    int l = n - 2 * t;
+    ZZ_p::init(p);
+    ZZ_p gen;
+    generator(gen, p);
+    ZZ_p h;
+    power(h, gen, 2);
+
+    for (int i = 0; i < n; i++) {
+        //cout << i << endl;
+
+        // SET UP
+        ZZ_p sk = generate_secret_key();
+        ZZ_p pk = generate_public_key(sk, h);
+        ledger.emplace_back(ledger_message(i, 0, ZZ_p_to_string(pk)));
+/*
+        // DISTRIBUTION
+        Vec<ZZ_p> alpha;
+        alpha.SetLength(pl->n);
+        for (int i = 0; i < pl->n; i++)
+            alpha[i] = ZZ_p(i + 1);
+        dist_time = distribution(l, t, alpha, pl);*/
+
+    }
+
+    for (int i = 0; i < n; i++) {
+        ZZ_p z = string_to_ZZ_p(ledger[i].content);
+        cout << z << endl;
+        add(z, z, 1);
+        cout << z << endl;
+    }
+
 }

@@ -14,11 +14,12 @@
 int main(int argc, char *argv[]) {
   int optc;
   int n = 1024,size = 1024;
-  bool ppvss = false, comp = false, ffte = false;
+  bool alb = false, ppvss = false, comp = false, ffte = false;
 
   /* long options struct */
   const struct option long_opts[] =
   {
+          {"alb",                  optional_argument, nullptr, 'a'},
     {"ppvss",                  optional_argument, nullptr, 'p'},
     {"comparison",             no_argument,       nullptr, 'c'},
     {"ffte",                   optional_argument, nullptr, 'f'},
@@ -27,9 +28,14 @@ int main(int argc, char *argv[]) {
     {nullptr,                     0,                 nullptr,  0 },
   };
 
-  const char *opt = "p::cf::n:h";
+  const char *opt = "a::p::cf::n:h";
   while ((optc = getopt_long(argc, argv, opt, long_opts, nullptr)) != -1) {
     switch (optc) {
+        case 'a':
+            if(optarg != nullptr)
+                size = atoi(optarg);
+            alb = true;
+            break;
       case 'p':
         if(optarg != nullptr)
           size = atoi(optarg);
@@ -77,7 +83,7 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
-  if (!ppvss && !comp && !ffte){
+  if (!alb && !ppvss && !comp && !ffte){
     cout << "\nUsage :\tALBATROSS -p[size_of_q] [-n number_of_participants] [-h]\n"
             "\tALBATROSS -c [-h]\n"
             "\tALBATROSS -f[size_of_q] [-n number_of_participants] [-h]\n\n"
@@ -90,6 +96,11 @@ int main(int argc, char *argv[]) {
             "Do not put space between an option and its argument, for example: ./albatross -p128 -n512\n\n";
     cout << "Please, enter a mode (p, c, f or h)\n";
     return EXIT_FAILURE;
+  }
+
+  if (alb) {
+      cout << "execution of albatross protocol\n\n";
+      alb_test(n,size);
   }
 
   if (ppvss) {
