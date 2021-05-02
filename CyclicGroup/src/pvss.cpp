@@ -373,38 +373,79 @@ ZZ q; // order of the group G_q
 ZZ p; // p = 2q+1
 ZZ_p h; // generator of G_q
 
-struct ledger_message {
+struct LedgerMessage {
     int pid; // id of the party who posted this on the ledger
-    int type; // 0: pk, 1: encrypted share + proof
-    string content;
+    int rid; // id of intended receiver (-1 if none)
+    int type; // 0: pk, 1: enc. share, 2: LDEI.a, 3: LDEI.e, 4: LDEI.z
+    ZZ_p value;
 
-    ledger_message(int _pid, int _type, string _content) {
+    LedgerMessage(int _pid, int _rid, int _type, const ZZ_p &_value) {
         pid = _pid;
+        rid = _rid;
         type = _type;
-        content = _content; // TODO maybe use std::move later???
+        value = _value;
+    }
+
+    LedgerMessage(int _pid, int _type, const ZZ_p &_value) {
+        pid = _pid;
+        rid = -1;
+        type = _type;
+        value = _value;
     }
 };
 
-vector<ledger_message> ledger;
+class Ledger {
+private:
+    vector<LedgerMessage> messages; // replace this with db
+public:
+    Ledger() = default;
 
+    void post_to_ledger(LedgerMessage lm) {
+        messages.push_back(lm);
+    }
+
+    vector<LedgerMessage> get_all_messages() {
+        return messages; //replace this with db
+    }
+
+    vector<LedgerMessage> get_messages_with_pid(int _pid) {
+        vector<LedgerMessage> results;
+        for (auto & message : messages) {
+            if (message.pid == _pid) {
+                results.emplace_back(message);
+            }
+        }
+        return results;
+    }
+
+    vector<LedgerMessage> get_messages_with_rid(int _rid) {
+        vector<LedgerMessage> results;
+        for (auto & message : messages) {
+            if (message.rid == _rid) {
+                results.emplace_back(message);
+            }
+        }
+        return results;
+    }
+
+    vector<LedgerMessage> get_messages_with_type(int _type) {
+        vector<LedgerMessage> results;
+        for (auto & message : messages) {
+            if (message.type == _type) {
+                results.emplace_back(message);
+            }
+        }
+        return results;
+    }
+};
+
+Ledger ledger;
+int pid;
 Vec<ZZ_p> pk_all;
 ZZ_p sk;
 ZZ_p pk;
 Vec<ZZ_p> sighat;
 LDEI ld;
-
-string ZZ_p_to_string(const ZZ_p &z) {
-    stringstream buffer;
-    buffer << z;
-    return buffer.str();
-}
-
-ZZ_p string_to_ZZ_p(string s) {
-    ZZ_p z;
-    z = to_ZZ_p(conv<ZZ>(s.c_str()));
-    return z;
-}
-
 
 ZZ_p generate_secret_key() {
     ZZ_p sk;
@@ -423,16 +464,24 @@ ZZ_p generate_public_key(ZZ_p sk) {
 Vec<ZZ_p> read_all_public_keys() {
     Vec<ZZ_p> pk_all;
     pk_all.SetLength(n);
-    for (int i = 0; i < ledger.size(); i++) {
-        ledger_message lm = ledger[i];
-        if (lm.type == 0) {
-            pk_all[i] = string_to_ZZ_p(lm.content);
-        }
+    vector<LedgerMessage> pk_messages = ledger.get_messages_with_type(0);
+    for (int i = 0; i < pk_messages.size(); i++) {
+        pk_all[i] = pk_messages[i].value;
     }
     return pk_all;
 }
 
-void distribution_alb(const Vec<ZZ_p>& alpha) {
+void post_ldei_to_ledger() {
+    for (int i = 0; i < ld.a.length(); i++) {
+        ledger.emplace_back(ledger_message(pid, 2, ld.a[i]));
+    }
+    ledger.emplace_back(ledger_message(pid, 3, ld.e));
+    for (int i = 0; i < deg(ld.z); i++) {
+        ledger.emplace_back(ledger_message(pid, 4, coeff(ld.z, i)));
+    }
+}
+
+void distribution_alb(const Vec<ZZ_p>& alpha, int pid) {
     if (t < 1 || t > n)
         return;
     // choice of the polynomial P
@@ -465,14 +514,13 @@ void distribution_alb(const Vec<ZZ_p>& alpha) {
     ld.prove(q, p, pk_all, alpha, deg, sighat, P);
     ld.print();
     // set the variables in the public ledger
+    post_ldei_to_ledger();
     // clean up
     s.kill();
 }
 
 void alb_test(const int _n, const int size) {
     cout << "hello bitch 2" << endl;
-
-    clock_t timetmp, setup_time, dist_time, decrypt_time=0,reco_time, all_time;
 
     // PARAMETERS
     n = _n;
@@ -487,12 +535,13 @@ void alb_test(const int _n, const int size) {
     sighat.SetLength(n);
 
     for (int i = 0; i < n; i++) {
+        pid = i;
         //cout << i << endl;
 
         // SET UP
         sk = generate_secret_key();
         pk = generate_public_key(sk);
-        ledger.emplace_back(ledger_message(i, 0, ZZ_p_to_string(pk)));
+        ledger.emplace_back(ledger_message(i, 0, pk));
     }
 
     for (int i = 0; i < n; i++) {
@@ -505,12 +554,15 @@ void alb_test(const int _n, const int size) {
         for (int j = 0; j < n; j++) {
             alpha[j] = ZZ_p(j + 1);
         }
-        distribution_alb(alpha);
-
+        distribution_alb(alpha, i);
     };
 
     for (int i = 0; i < n; i++) {
-        ZZ_p z = string_to_ZZ_p(ledger[i].content);
+
+    }
+
+    for (int i = 0; i < n; i++) {
+        ZZ_p z = ledger[i].value;
         cout << z << endl;
         add(z, z, 1);
         cout << z << endl;

@@ -12,12 +12,12 @@ using namespace NTL;
 ////////////////////////////////////////////////////////////////////////////////
 
 class LDEI {
-  private:
+  public:
     Vec<ZZ_p> a;
     ZZ_p e;
     ZZ_pX z;
-  public:
     LDEI();
+    LDEI(const Vec<ZZ_p>& a, ZZ_p e, ZZ_pX z);
     ~LDEI() {}
     void print();
     void prove(const ZZ& q, const ZZ& p, const Vec<ZZ_p>& g, const Vec<ZZ_p>& alpha, const long k, const Vec<ZZ_p>& x, const ZZ_pX& P);

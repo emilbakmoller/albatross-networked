@@ -11,6 +11,12 @@ LDEI::LDEI() {
   a.SetLength(0);
 }
 
+LDEI::LDEI(const Vec<ZZ_p>& a, ZZ_p e, ZZ_pX z) {
+    LDEI::a = a;
+    LDEI::e = e;
+    LDEI::z = z;
+}
+
 void LDEI::print() {
   if (a.length() > 0)
     cout << "\n a = " << a << "\n e = " << e << "\n z = " << z << endl;
