@@ -376,7 +376,7 @@ ZZ_p h; // generator of G_q
 struct LedgerMessage {
     int pid; // id of the party who posted this on the ledger
     int rid; // id of intended receiver (-1 if none)
-    int type; // 0: pk, 1: enc. share, 2: LDEI.a, 3: LDEI.e, 4: LDEI.z
+    int type; // 0: pk, 1: enc. share, 2: LDEI.a, 3: LDEI.e, 4: LDEI.z, 5: sharing polynomial
     ZZ_p value;
 
     LedgerMessage(int _pid, int _rid, int _type, const ZZ_p &_value) {
@@ -437,6 +437,27 @@ public:
         }
         return results;
     }
+
+    vector<LedgerMessage> get_ldei_messages(int _pid) {
+        vector<LedgerMessage> results;
+        for (auto & message : messages) {
+            if (message.pid == _pid && message.type >= 2 && message.type <= 4) {
+                results.emplace_back(message);
+            }
+        }
+        return results;
+    }
+
+    vector<LedgerMessage> get_messages_with_pid_type(int _pid, int _type) {
+        vector<LedgerMessage> results;
+        for (auto & message : messages) {
+            if (message.pid == _pid && message.type == _type) {
+                results.emplace_back(message);
+            }
+        }
+        return results;
+    }
+
 };
 
 Ledger ledger;
@@ -444,8 +465,10 @@ int pid;
 Vec<ZZ_p> pk_all;
 ZZ_p sk;
 ZZ_p pk;
+ZZ_pX P;
 Vec<ZZ_p> sighat;
 LDEI ld;
+vector<int> c; // set of parties who have posted a valid sharing
 
 ZZ_p generate_secret_key() {
     ZZ_p sk;
@@ -471,14 +494,39 @@ Vec<ZZ_p> read_all_public_keys() {
     return pk_all;
 }
 
+void post_encrypted_shares_to_ledger() {
+    for (int i = 0; i < n; i++) {
+        ledger.post_to_ledger(LedgerMessage(pid, i, 1, sighat[i]));
+    }
+}
+
 void post_ldei_to_ledger() {
     for (int i = 0; i < ld.a.length(); i++) {
-        ledger.emplace_back(ledger_message(pid, 2, ld.a[i]));
+        ledger.post_to_ledger(LedgerMessage(pid, 2, ld.a[i]));
     }
-    ledger.emplace_back(ledger_message(pid, 3, ld.e));
+    ledger.post_to_ledger(LedgerMessage(pid, 3, ld.e));
     for (int i = 0; i < deg(ld.z); i++) {
-        ledger.emplace_back(ledger_message(pid, 4, coeff(ld.z, i)));
+        ledger.post_to_ledger(LedgerMessage(pid, 4, coeff(ld.z, i)));
     }
+}
+
+LDEI read_LDEI_from_ledger(int pid) {
+    int ai = 0, zi = 0; // indices
+    vector<LedgerMessage> ldei_messages = ledger.get_ldei_messages(pid);
+    Vec<ZZ_p> a;
+    a.SetLength(n);
+    ZZ_p e;
+    ZZ_pX z;
+    for (const auto& lm : ldei_messages) {
+        if (lm.type == 2) {
+            a[ai++] = lm.value;
+        } else if (lm.type == 3) {
+            e = lm.value;
+        } else {
+            SetCoeff(z, zi++, lm.value);
+        }
+    }
+    return LDEI(a, e, z);
 }
 
 void distribution_alb(const Vec<ZZ_p>& alpha, int pid) {
@@ -486,7 +534,6 @@ void distribution_alb(const Vec<ZZ_p>& alpha, int pid) {
         return;
     // choice of the polynomial P
     int deg = t + l;
-    ZZ_pX P;
     random(P, deg);
     // conputation of the exponents and shamir's shares
     Vec<ZZ_p> s;
@@ -510,6 +557,9 @@ void distribution_alb(const Vec<ZZ_p>& alpha, int pid) {
         cout << "sighat: " << sighat[i] << endl;
         time += clock() - timetmp;
     }
+
+    post_encrypted_shares_to_ledger();
+
     // computation of the proof ldei
     ld.prove(q, p, pk_all, alpha, deg, sighat, P);
     ld.print();
@@ -519,8 +569,38 @@ void distribution_alb(const Vec<ZZ_p>& alpha, int pid) {
     s.kill();
 }
 
+vector<int> verify_ldei(Vec<ZZ_p> alpha) {
+    vector<int> valid_sharings_pids;
+    for (int i = 0; i < n; i++) {
+        LDEI ldei = read_LDEI_from_ledger(i);
+        if (ldei.verify(q, p, pk_all, alpha, t+l, sighat)) {
+            valid_sharings_pids.emplace_back(i);
+        }
+    }
+    return valid_sharings_pids;
+}
+
+void post_sharing_polynomial_to_ledger() {
+    for (int i = 0; i < t + l; i++) {
+        ledger.post_to_ledger(LedgerMessage(pid, 5, coeff(P, i)));
+    }
+}
+
+void verify_sharing_polynomials() {
+    for (int pid : c) {
+        ZZ_pX polynomial;
+        int index = 0;
+        for (const LedgerMessage& lm: ledger.get_messages_with_pid_type(pid, 5)) {
+            SetCoeff(polynomial, index++, lm.value);
+        }
+        // TODO reproduce distribution phase for this party
+    }
+}
+
 void alb_test(const int _n, const int size) {
     cout << "hello bitch 2" << endl;
+
+    int pid = 0; // how do I know this????
 
     // PARAMETERS
     n = _n;
@@ -534,38 +614,37 @@ void alb_test(const int _n, const int size) {
     power(h, gen, 2);
     sighat.SetLength(n);
 
-    for (int i = 0; i < n; i++) {
-        pid = i;
-        //cout << i << endl;
+    //cout << i << endl;
 
-        // SET UP
-        sk = generate_secret_key();
-        pk = generate_public_key(sk);
-        ledger.emplace_back(ledger_message(i, 0, pk));
+    // SET UP
+    sk = generate_secret_key();
+    pk = generate_public_key(sk);
+    ledger.post_to_ledger(LedgerMessage(pid, 0, pk));
+
+    // TODO wait for everyone to post their pk
+
+    // Read everyone's public keys
+    pk_all = read_all_public_keys();
+
+    // DISTRIBUTION
+    Vec<ZZ_p> alpha;
+    alpha.SetLength(n);
+    for (int j = 0; j < n; j++) {
+        alpha[j] = ZZ_p(j + 1);
+    }
+    distribution_alb(alpha, pid);
+
+    // TODO wait for everyone (not everyone?) to post encrypted shares + LDEI
+
+    c = verify_ldei(alpha);
+    if (c.size() < n - t) {
+        cout << "oh no not enough parties posted valid sharings" << endl;
+        return;
     }
 
-    for (int i = 0; i < n; i++) {
-        // Read everyone's public keys
-        pk_all = read_all_public_keys();
+    post_sharing_polynomial_to_ledger();
 
-        // DISTRIBUTION
-        Vec<ZZ_p> alpha;
-        alpha.SetLength(n);
-        for (int j = 0; j < n; j++) {
-            alpha[j] = ZZ_p(j + 1);
-        }
-        distribution_alb(alpha, i);
-    };
+    verify_sharing_polynomials();
 
-    for (int i = 0; i < n; i++) {
-
-    }
-
-    for (int i = 0; i < n; i++) {
-        ZZ_p z = ledger[i].value;
-        cout << z << endl;
-        add(z, z, 1);
-        cout << z << endl;
-    }
 
 }
