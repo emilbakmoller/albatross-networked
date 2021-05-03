@@ -396,6 +396,8 @@ struct LedgerMessage {
     }
 };
 
+
+// has to be static global in order for it to work right now
 static vector<LedgerMessage> messages_db;
 
 class Ledger {
@@ -428,16 +430,17 @@ public:
     }
 
 
+    // callback used when we want to save multiple results from the database in a list.
+    // right now the list is erased with every call to the database.
     static int callback_message_list(void *NotUsed, int argc, char **argv, char **azColName) {
 
         string lol = argv[3];
 
         ZZ_p test = string_to_ZZ_p(lol);
 
+
+        // update and make it use real parameters
         LedgerMessage m = LedgerMessage(1,2,3,test);
-
-        cout << "inserting to messages_db" << endl;
-
 
         messages_db.emplace_back(m);
 
@@ -532,6 +535,7 @@ public:
         sqlite3_close(db);
     }
 
+    // does not currently save the results, only prints it.
     void get_all_messages_db() {
         sqlite3 *db;
         char *zErrMsg = 0;
@@ -616,6 +620,7 @@ public:
     }
 
     vector<LedgerMessage> get_messages_with_pid(int _pid) {
+        // we clear the global list with messages from the ledger
         messages_db.clear();
         get_messages_with_pid_db(_pid);
         return messages_db;
@@ -822,8 +827,6 @@ void alb_test(const int _n, const int size) {
     power(h, gen, 2);
     sighat.SetLength(n);
 
-    //cout << i << endl;
-
     // SET UP
     sk = generate_secret_key();
     pk = generate_public_key(sk);
@@ -846,16 +849,11 @@ void alb_test(const int _n, const int size) {
 
     cout << "Distribution done" << endl;
 
-    ledger.get_all_messages_db();
+    //ledger.get_all_messages_db();
 
 
-    // get all messages with pid = 0
-    ledger.get_messages_with_pid_db(1);
-
-    for (auto & message : messages_db) {
-        cout << message.pid << endl;
-        cout << message.value << endl;
-    }
+    // get all messages with pid = 0, maybe create function to display
+    ledger.get_messages_with_pid_db(0);
 
     // TODO wait for everyone (not everyone?) to post encrypted shares + LDEI
 
@@ -864,6 +862,7 @@ void alb_test(const int _n, const int size) {
         cout << "oh no not enough parties posted valid sharings" << endl;
         return;
     }
+
 
     post_sharing_polynomial_to_ledger();*/
 
