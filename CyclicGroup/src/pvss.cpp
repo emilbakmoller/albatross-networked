@@ -397,7 +397,8 @@ struct LedgerMessage {
 };
 
 
-// has to be static global in order for it to work right now
+// has to be static global in order for it to work right now.
+// works as a temporary list to fetch database results to.
 static vector<LedgerMessage> messages_db;
 
 class Ledger {
@@ -425,7 +426,7 @@ public:
         for(i = 0; i<argc; i++) {
             printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
         }
-        printf("\n");
+
         return 0;
     }
 
@@ -434,17 +435,16 @@ public:
     // right now the list is erased with every call to the database.
     static int callback_message_list(void *NotUsed, int argc, char **argv, char **azColName) {
 
+        int p = stoi(argv[0]);
+        int r = stoi(argv[1]);
+        int v = stoi(argv[2]);
         string lol = argv[3];
 
         ZZ_p test = string_to_ZZ_p(lol);
 
-
-        // update and make it use real parameters
-        LedgerMessage m = LedgerMessage(1,2,3,test);
+        LedgerMessage m = LedgerMessage(p,r,v,test);
 
         messages_db.emplace_back(m);
-
-        printf("\n");
 
         return 0;
     }
@@ -464,7 +464,7 @@ public:
         }
 
 
-        std::string query = "INSERT INTO LEDGER (PID, RID, TYPE, VALUE) VALUES("+std::to_string(lm.pid)+", "+std::to_string(lm.rid)+" , "+std::to_string(lm.type)+",'"+ZZ_p_to_string(lm.value)+"')";
+        string query = "INSERT INTO LEDGER (PID, RID, TYPE, VALUE) VALUES("+to_string(lm.pid)+", "+to_string(lm.rid)+" , "+to_string(lm.type)+",'"+ZZ_p_to_string(lm.value)+"')";
 
         sql = &query[0];
 
@@ -535,8 +535,7 @@ public:
         sqlite3_close(db);
     }
 
-    // does not currently save the results, only prints it.
-    void get_all_messages_db() {
+    vector<LedgerMessage> get_all_messages_db() {
         sqlite3 *db;
         char *zErrMsg = 0;
         int rc;
@@ -551,13 +550,13 @@ public:
             fprintf(stderr, "Opened database successfully\n");
         }
 
-        std::string query = "SELECT * from LEDGER";
+        string query = "SELECT * from LEDGER";
 
         // convert from string to sql
         sql = &query[0];
 
         /* Execute SQL statement */
-        rc = sqlite3_exec(db, sql, callback, (void*)data, &zErrMsg);
+        rc = sqlite3_exec(db, sql, callback_message_list, (void*)data, &zErrMsg);
 
         if( rc != SQLITE_OK ) {
             fprintf(stderr, "SQL error: %s\n", zErrMsg);
@@ -568,9 +567,11 @@ public:
         }
         sqlite3_close(db);
 
-    }
+        return messages_db;
 
-    void get_messages_with_pid_db(int _pid) {
+    }
+    // saves the result from the function call to the global db_messages vector
+    vector<LedgerMessage> get_messages_with_pid_db(int _pid) {
         sqlite3 *db;
         char *zErrMsg = 0;
         int rc;
@@ -590,7 +591,6 @@ public:
         // convert from string to sql
         sql = &query[0];
 
-        cout << sql << endl;;
 
         /* Execute SQL statement */
         rc = sqlite3_exec(db, sql, callback_message_list, (void*)data, &zErrMsg);
@@ -604,6 +604,82 @@ public:
         }
         sqlite3_close(db);
 
+        return messages_db;
+
+    }
+
+    vector<LedgerMessage> get_messages_with_type_db(int _type) {
+        sqlite3 *db;
+        char *zErrMsg = 0;
+        int rc;
+        char *sql;
+        const char* data = "Callback function called";
+
+        rc = sqlite3_open("database", &db);
+
+        if( rc ) {
+            fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
+        } else {
+            fprintf(stderr, "Opened database successfully\n");
+        }
+
+        std::string query = "SELECT * from LEDGER WHERE TYPE = " +to_string(_type)+"";
+
+        // convert from string to sql
+        sql = &query[0];
+
+
+        /* Execute SQL statement */
+        rc = sqlite3_exec(db, sql, callback_message_list, (void*)data, &zErrMsg);
+
+        if( rc != SQLITE_OK ) {
+            fprintf(stderr, "SQL error: %s\n", zErrMsg);
+            sqlite3_free(zErrMsg);
+        } else {
+            fprintf(stdout, "Operation done successfully\n");
+            //cout << data << endl;
+        }
+        sqlite3_close(db);
+
+        return messages_db;
+
+    }
+
+    vector<LedgerMessage> get_messages_with_rid_db(int _rid) {
+        sqlite3 *db;
+        char *zErrMsg = 0;
+        int rc;
+        char *sql;
+        const char* data = "Callback function called";
+
+        rc = sqlite3_open("database", &db);
+
+        if( rc ) {
+            fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
+        } else {
+            fprintf(stderr, "Opened database successfully\n");
+        }
+
+        std::string query = "SELECT * from LEDGER WHERE RID = " +std::to_string(_rid)+"";
+
+        // convert from string to sql
+        sql = &query[0];
+
+
+        /* Execute SQL statement */
+        rc = sqlite3_exec(db, sql, callback_message_list, (void*)data, &zErrMsg);
+
+        if( rc != SQLITE_OK ) {
+            fprintf(stderr, "SQL error: %s\n", zErrMsg);
+            sqlite3_free(zErrMsg);
+        } else {
+            fprintf(stdout, "Operation done successfully\n");
+            //cout << data << endl;
+        }
+        sqlite3_close(db);
+
+        return messages_db;
+
     }
 
     void post_to_ledger(LedgerMessage lm) {
@@ -613,8 +689,8 @@ public:
     }
 
     vector<LedgerMessage> get_all_messages() {
-        // figure out how to convert back into LedgerMessage from database
-        cout << "calling get_all_messages" << endl;
+        // we clear the global list with messages from the ledger
+        messages_db.clear();
         get_all_messages_db();
         return messages; //replace this with db
     }
@@ -622,28 +698,20 @@ public:
     vector<LedgerMessage> get_messages_with_pid(int _pid) {
         // we clear the global list with messages from the ledger
         messages_db.clear();
-        get_messages_with_pid_db(_pid);
+        get_messages_with_pid_db(_pid); // call the designated db function. change this later when full transition to db
         return messages_db;
     }
 
     vector<LedgerMessage> get_messages_with_rid(int _rid) {
-        vector<LedgerMessage> results;
-        for (auto & message : messages) {
-            if (message.rid == _rid) {
-                results.emplace_back(message);
-            }
-        }
-        return results;
+        messages_db.clear();
+        get_messages_with_rid_db(_rid); // call the designated db function. change this later when full transition to db
+        return messages_db;
     }
 
     vector<LedgerMessage> get_messages_with_type(int _type) {
-        vector<LedgerMessage> results;
-        for (auto & message : messages) {
-            if (message.type == _type) {
-                results.emplace_back(message);
-            }
-        }
-        return results;
+        messages_db.clear();
+        get_messages_with_type_db(_type);
+        return messages_db;
     }
 
     vector<LedgerMessage> get_ldei_messages(int _pid) {
@@ -696,7 +764,11 @@ Vec<ZZ_p> read_all_public_keys() {
     Vec<ZZ_p> pk_all;
     pk_all.SetLength(n);
     vector<LedgerMessage> pk_messages = ledger.get_messages_with_type(0);
+
+    cout << "LEDGERMESSAGE " << pk_messages.size() << endl;
+
     for (int i = 0; i < pk_messages.size(); i++) {
+        cout << "lm: " << pk_messages[i].value << endl;
         pk_all[i] = pk_messages[i].value;
     }
     return pk_all;
@@ -762,8 +834,10 @@ void distribution_alb(const Vec<ZZ_p>& alpha, int pid) {
     for (int i = 0; i < n; i++) {
         repzz = rep(s[i+l]);
         timetmp = clock();
+        cout << "pk [i]: " << pk_all[i] << endl;
+        cout << "repzz: " << repzz << endl;
         power(sighat[i], pk_all[i], repzz);
-        //cout << "sighat: " << sighat[i] << endl;
+        cout << "sighat: " << sighat[i] << endl;
         time += clock() - timetmp;
     }
 
@@ -813,7 +887,7 @@ void alb_test(const int _n, const int size) {
     ledger.create_database();
     ledger.create_table();
 
-    int pid = 0; // how do I know this????
+    //int pid = 0; // how do I know this????
 
     // PARAMETERS
     n = _n;
@@ -827,10 +901,21 @@ void alb_test(const int _n, const int size) {
     power(h, gen, 2);
     sighat.SetLength(n);
 
-    // SET UP
-    sk = generate_secret_key();
-    pk = generate_public_key(sk);
-    ledger.post_to_ledger(LedgerMessage(pid, 0, pk));
+    for (int i = 0; i < n; i++) {
+        pid = i;
+        // SET UP
+        sk = generate_secret_key();
+        pk = generate_public_key(sk);
+        ledger.post_to_ledger(LedgerMessage(pid, 0, pk));
+    }
+
+    ledger.get_all_messages_db();
+
+    for (auto & message : messages_db) {
+        cout << "pid: " << message.pid << endl;
+        cout << "type: " << message.type << endl;
+        cout << "value: " << message.value << endl;
+    }
 
     cout << "Posted to ledger" << endl;
 
@@ -839,21 +924,47 @@ void alb_test(const int _n, const int size) {
     // Read everyone's public keys
     pk_all = read_all_public_keys();
 
-    // DISTRIBUTION
-    Vec<ZZ_p> alpha;
-    alpha.SetLength(n);
-    for (int j = 0; j < n; j++) {
-        alpha[j] = ZZ_p(j + 1);
+    for (int i = 0; i < n; i++) {
+        pid = i;
+        // DISTRIBUTION
+        Vec <ZZ_p> alpha;
+        alpha.SetLength(n);
+        for (int j = 0; j < n; j++) {
+            alpha[j] = ZZ_p(j + 1);
+        }
+        distribution_alb(alpha, pid);
     }
-    distribution_alb(alpha, pid);
 
     cout << "Distribution done" << endl;
 
-    //ledger.get_all_messages_db();
+    messages_db.clear();
 
+    // print
+    ledger.get_all_messages_db();
+
+    for (auto & message : messages_db) {
+            cout << "pid: " << message.pid << endl;
+            cout << "rid: " << message.rid << endl;
+            cout << "type: " << message.type << endl;
+            cout << "value: " << message.value << endl;
+    }
+
+    cout << "size: " << messages_db.size() << endl;;
+
+    messages_db.clear();
 
     // get all messages with pid = 0, maybe create function to display
-    ledger.get_messages_with_pid_db(0);
+    ledger.get_messages_with_pid_db(2);
+
+    cout << "size: " << messages_db.size() << endl;
+
+    messages_db.clear();
+
+    ledger.get_messages_with_rid_db(-1);
+
+    cout << "size: " << messages_db.size() << endl;
+
+
 
     // TODO wait for everyone (not everyone?) to post encrypted shares + LDEI
 
@@ -865,8 +976,6 @@ void alb_test(const int _n, const int size) {
 
 
     post_sharing_polynomial_to_ledger();*/
-
-    //ledger.get_all_messages_db();
 
     //verify_sharing_polynomials();
 
