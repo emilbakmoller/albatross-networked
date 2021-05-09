@@ -666,7 +666,7 @@ void read_sharing_polynomial_from_ledger(const ZZ_p &sender_pk, ZZ_pX &polynomia
     }
 }
 
-void verify_sharing_polynomials(const vector<ZZ_p> &valid_sharings_pks, const Vec<ZZ_p> &pk_all) {
+void verify_sharing_polynomials(const vector<ZZ_p> &valid_sharings_pks, const Vec<ZZ_p> &pk_all, vector<ZZ_p> &invalid_sharing_polynomials_pks) {
     for (const ZZ_p& pk : valid_sharings_pks) {
         ZZ_pX polynomial;
         read_sharing_polynomial_from_ledger(pk, polynomial);
@@ -683,8 +683,9 @@ void verify_sharing_polynomials(const vector<ZZ_p> &valid_sharings_pks, const Ve
         //posted_ldei.print();
         //cout << "the reproduced LDEI is:" << endl;
         //ld.print();
-        if (sighat == posted_sighat) {
-            cout << "ah yes they are the same" << endl;
+        if (sighat != posted_sighat) {
+            cout << "pk " << pk << " has not opened their secrets correctly" << endl;
+            invalid_sharing_polynomials_pks.emplace_back(pk);
         }
     }
 }
@@ -713,6 +714,7 @@ struct party_data {
     Vec<ZZ_p> sighat;
     LDEI ld;
     vector<ZZ_p> c; // set of parties who posted valid sharings
+    vector<ZZ_p> c_a; // set of parties in c who did not open secrets correctly
 
     party_data() {
         pk_all.SetLength(n);
@@ -790,7 +792,14 @@ void alb_test(const int _n, const int size) {
 
     for (int i = 0; i < n; i++) {
         post_sharing_polynomial_to_ledger(party[i].pk, party[i].polynomial);
-        verify_sharing_polynomials(party[i].c, party[i].pk_all);
+    }
+
+    for (int i = 0; i < n; i++) {
+        verify_sharing_polynomials(party[i].c, party[i].pk_all, party[i].c_a);
+        cout << "c_a size: " << party[i].c_a.size() << endl;
+        // TODO if c_a.size() > 0, reconstruct!
+
+
     }
 
 
