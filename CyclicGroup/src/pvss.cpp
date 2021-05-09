@@ -6,6 +6,7 @@
 #include <utility>
 #include <vector>
 #include <sstream>
+#include <thread>
 
 #include <NTL/ZZ_pX.h>
 #include <sqlite3.h>
@@ -32,7 +33,7 @@ struct pl_t {
   ZZ p; // p = 2q+1
   ZZ_p h; // generator of G_q
   Vec<ZZ_p> pk; // publi keys
-  Vec<ZZ_p> sighat; // encrypted shares  Map<pk, Vec<ZZ_p>>
+  Vec<ZZ_p> sighat; // encrypted shares  Map<sender_pk, Vec<ZZ_p>>
   LDEI ld; // proof LDEI
   int *reco_parties; // reconstructing party's identifiants
   Vec<ZZ_p> sigtilde; // decrypted shares and their index
@@ -73,7 +74,7 @@ void pl_print(pl_t *pl) {
   cout << "\n\n___________________________ Public Ledger ___________________________\n";
   cout << pl->n << " participants" << endl;
   cout << "q = " << pl->q << endl;
-  cout << "pk : " << pl->pk << endl;
+  cout << "sender_pk : " << pl->pk << endl;
   if (dist) {
     cout << endl << pl->t << " threshold" << endl;
     cout << "encrypted shares :" << endl << pl->sighat << endl;
@@ -130,12 +131,12 @@ clock_t setup(pl_t* pl, Vec<ZZ_p>& sk, const int n, const ZZ& q, const ZZ& p, co
   ZZ_p s;
   sk.SetLength(n);
   for (int i = 0; i < n; i++) {
-    random(s);
+    /*random(s);
     while (IsZero(s))
-      random(s);
-    sk[i] = s;
+      random(s);*/
+    sk[i] = ZZ_p(27 + i);
   }
-  // computation of public keys pk = h^sk
+  // computation of public keys sender_pk = h^sk
   ZZ r;
   ZZ_pPush push(p);
   clock_t time = 0, timetmp;
@@ -159,7 +160,10 @@ clock_t distribution(const int l, const int t, const Vec<ZZ_p>& alpha, pl_t *pl)
   // choice of the polynomial P
   int deg = t + l;
   ZZ_pX P;
-  random(P, deg);
+  //random(P, deg);
+  for (int i = 0; i < deg; i++) {
+      SetCoeff(P, i, ZZ_p(11 + i));
+  }
   // conputation of the exponents and shamir's shares
   Vec<ZZ_p> s;
   s.SetLength(pl->n+l);
@@ -181,7 +185,28 @@ clock_t distribution(const int l, const int t, const Vec<ZZ_p>& alpha, pl_t *pl)
     time += clock() - timetmp;
   }
   // computation of the proof ldei
+
+  cout << "\n\nHELLO THIS IS BEFORE PROOF!" << endl;
+  cout << "q: " << pl->q << endl;
+  cout << "p: " << pl->p << endl;
+  cout << "pk: " << pl->pk << endl;
+  cout << "alpha: " << alpha << endl;
+  cout << "deg: " << deg << endl;
+  cout << "sighat: " << pl->sighat << endl;
+  cout << "p: " << P << endl;
+  cout << "LDEI:" << endl;
+  pl->ld.print();
   pl->ld.prove(pl->q, pl->p, pl->pk, alpha, deg, pl->sighat, P);
+    cout << "\n\nHELLO THIS IS JUST AFTER PROOF!" << endl;
+    cout << "q: " << pl->q << endl;
+    cout << "p: " << pl->p << endl;
+    cout << "pk: " << pl->pk << endl;
+    cout << "alpha: " << alpha << endl;
+    cout << "deg: " << deg << endl;
+    cout << "sighat: " << pl->sighat << endl;
+    cout << "p: " << P << endl;
+    cout << "LDEI:" << endl;
+    pl->ld.print();
   // set the variables in the public ledger
   pl->l = l;
   pl->t = t;
@@ -264,11 +289,29 @@ void pvss_test(const int n, const int size) {
   dist_time = distribution(l,t,alpha,pl);
 
   // VERIFICATION
+    cout << "\n\nHELLO THIS IS JUST BEFORE VERIFY!" << endl;
+    cout << "q: " << pl->q << endl;
+    cout << "p: " << pl->p << endl;
+    cout << "pk: " << pl->pk << endl;
+    cout << "alpha: " << alpha << endl;
+    cout << "deg: " << (t+l) << endl;
+    cout << "sighat: " << pl->sighat << endl;
+    cout << "LDEI:" << endl;
+    pl->ld.print();
   if (!(pl->ld.verify(q, p, pl->pk, alpha, t+l, pl->sighat))) {
     cout << "The proof LDEI isn't correct..." << endl;
     pl_free(pl);
     return;
   }
+    cout << "\n\nHELLO THIS IS JUST AFTER VERIFY!" << endl;
+    cout << "q: " << pl->q << endl;
+    cout << "p: " << pl->p << endl;
+    cout << "pk: " << pl->pk << endl;
+    cout << "alpha: " << alpha << endl;
+    cout << "deg: " << (t+l) << endl;
+    cout << "sighat: " << pl->sighat << endl;
+    cout << "LDEI:" << endl;
+    pl->ld.print();
 
   // SHARE OF DECRYPTED SHARES AND PROOF DLEQ
   // choice of  the reconstructing parties
@@ -376,21 +419,21 @@ ZZ p; // p = 2q+1
 ZZ_p h; // generator of G_q
 
 struct LedgerMessage {
-    int pid; // id of the party who posted this on the ledger
-    int rid; // id of intended receiver (-1 if none)
-    int type; // 0: pk, 1: enc. share, 2: LDEI.a, 3: LDEI.e, 4: LDEI.z, 5: sharing polynomial
+    ZZ_p sender_pk; // id of the party who posted this on the ledger
+    ZZ_p recipient_pk; // id of intended receiver (-1 if none)
+    int type; // 0: sender_pk, 1: enc. share, 2: LDEI.a, 3: LDEI.e, 4: LDEI.z, 5: sharing polynomial
     ZZ_p value;
 
-    LedgerMessage(int _pid, int _rid, int _type, const ZZ_p &_value) {
-        pid = _pid;
-        rid = _rid;
+    LedgerMessage(const ZZ_p &_sender_pk, const ZZ_p &_recipient_pk, int _type, const ZZ_p &_value) {
+        sender_pk = _sender_pk;
+        recipient_pk = _recipient_pk;
         type = _type;
         value = _value;
     }
 
-    LedgerMessage(int _pid, int _type, const ZZ_p &_value) {
-        pid = _pid;
-        rid = -1;
+    LedgerMessage(const ZZ_p &_sender_pk, int _type, const ZZ_p &_value) {
+        sender_pk = _sender_pk;
+        recipient_pk = ZZ_p(0);
         type = _type;
         value = _value;
     }
@@ -421,313 +464,58 @@ public:
         return z;
     }
 
-    static int callback(void *NotUsed, int argc, char **argv, char **azColName) {
-        int i;
-        for(i = 0; i<argc; i++) {
-            printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
-        }
-
-        return 0;
-    }
-
-
-    // callback used when we want to save multiple results from the database in a list.
-    // right now the list is erased with every call to the database.
-    static int callback_message_list(void *NotUsed, int argc, char **argv, char **azColName) {
-
-        int p = stoi(argv[0]);
-        int r = stoi(argv[1]);
-        int v = stoi(argv[2]);
-        string lol = argv[3];
-
-        ZZ_p test = string_to_ZZ_p(lol);
-
-        LedgerMessage m = LedgerMessage(p,r,v,test);
-
-        messages_db.emplace_back(m);
-
-        return 0;
-    }
-
-    void insert_message(LedgerMessage lm) {
-        sqlite3 *db;
-        char *zErrMsg = 0;
-        int rc;
-        char *sql;
-
-        rc = sqlite3_open("database", &db);
-
-        if( rc ) {
-            fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
-        } else {
-            //fprintf(stderr, "Opened database successfully\n");
-        }
-
-
-        string query = "INSERT INTO LEDGER (PID, RID, TYPE, VALUE) VALUES("+to_string(lm.pid)+", "+to_string(lm.rid)+" , "+to_string(lm.type)+",'"+ZZ_p_to_string(lm.value)+"')";
-
-        sql = &query[0];
-
-        rc = sqlite3_exec(db, sql, callback, 0, &zErrMsg);
-
-        if( rc != SQLITE_OK ){
-            fprintf(stderr, "SQL error: %s\n", zErrMsg);
-            sqlite3_free(zErrMsg);
-        } else {
-            //fprintf(stdout, "Records created successfully\n");
-        }
-        sqlite3_close(db);
-    }
-
-    void create_database() {
-        // TODO figure out if the variables can be global
-        sqlite3 *db;
-        char *zErrMsg = 0;
-        int rc;
-
-        std::cout << "Creating database: " << std::endl;
-
-        rc = sqlite3_open("database", &db);
-
-        if( rc ) {
-            fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
-        } else {
-            fprintf(stderr, "Opened database successfully\n");
-        }
-        sqlite3_close(db);
-    }
-
-    void create_table() {
-        sqlite3 *db;
-        char *zErrMsg = 0;
-        int rc;
-        char *sql;
-
-        std::cout << "Creating table in database: database"  << std::endl;
-
-
-        //name of database to connect to
-        rc = sqlite3_open("database", &db);
-
-        if( rc ) {
-            fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
-        } else {
-            fprintf(stdout, "Opened database successfully\n");
-        }
-
-        // TODO change PID to be unique
-        sql = "DROP TABLE IF EXISTS LEDGER; CREATE TABLE LEDGER("  \
-      "PID INT      NOT NULL," \
-      "RID           INT    NOT NULL," \
-      "TYPE            INT     NOT NULL," \
-      "VALUE        CHAR(100));";
-
-        /* Execute SQL statement */
-        rc = sqlite3_exec(db, sql, callback, 0, &zErrMsg);
-
-
-        if( rc != SQLITE_OK ){
-            fprintf(stderr, "SQL error: %s\n", zErrMsg);
-            sqlite3_free(zErrMsg);
-        } else {
-            fprintf(stdout, "Table created successfully\n");
-        }
-        sqlite3_close(db);
-    }
-
-    vector<LedgerMessage> get_all_messages_db() {
-        sqlite3 *db;
-        char *zErrMsg = 0;
-        int rc;
-        char *sql;
-        const char* data = "Callback function called";
-
-        rc = sqlite3_open("database", &db);
-
-        if( rc ) {
-            fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
-        } else {
-            fprintf(stderr, "Opened database successfully\n");
-        }
-
-        string query = "SELECT * from LEDGER";
-
-        // convert from string to sql
-        sql = &query[0];
-
-        /* Execute SQL statement */
-        rc = sqlite3_exec(db, sql, callback_message_list, (void*)data, &zErrMsg);
-
-        if( rc != SQLITE_OK ) {
-            fprintf(stderr, "SQL error: %s\n", zErrMsg);
-            sqlite3_free(zErrMsg);
-        } else {
-            fprintf(stdout, "Operation done successfully\n");
-            //cout << data << endl;
-        }
-        sqlite3_close(db);
-
-        return messages_db;
-
-    }
-    // saves the result from the function call to the global db_messages vector
-    vector<LedgerMessage> get_messages_with_pid_db(int _pid) {
-        sqlite3 *db;
-        char *zErrMsg = 0;
-        int rc;
-        char *sql;
-        const char* data = "Callback function called";
-
-        rc = sqlite3_open("database", &db);
-
-        if( rc ) {
-            fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
-        } else {
-            fprintf(stderr, "Opened database successfully\n");
-        }
-
-        std::string query = "SELECT * from LEDGER WHERE PID = " +std::to_string(_pid)+"";
-
-        // convert from string to sql
-        sql = &query[0];
-
-
-        /* Execute SQL statement */
-        rc = sqlite3_exec(db, sql, callback_message_list, (void*)data, &zErrMsg);
-
-        if( rc != SQLITE_OK ) {
-            fprintf(stderr, "SQL error: %s\n", zErrMsg);
-            sqlite3_free(zErrMsg);
-        } else {
-            fprintf(stdout, "Operation done successfully\n");
-            //cout << data << endl;
-        }
-        sqlite3_close(db);
-
-        return messages_db;
-
-    }
-
-    vector<LedgerMessage> get_messages_with_type_db(int _type) {
-        sqlite3 *db;
-        char *zErrMsg = 0;
-        int rc;
-        char *sql;
-        const char* data = "Callback function called";
-
-        rc = sqlite3_open("database", &db);
-
-        if( rc ) {
-            fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
-        } else {
-            fprintf(stderr, "Opened database successfully\n");
-        }
-
-        std::string query = "SELECT * from LEDGER WHERE TYPE = " +to_string(_type)+"";
-
-        // convert from string to sql
-        sql = &query[0];
-
-
-        /* Execute SQL statement */
-        rc = sqlite3_exec(db, sql, callback_message_list, (void*)data, &zErrMsg);
-
-        if( rc != SQLITE_OK ) {
-            fprintf(stderr, "SQL error: %s\n", zErrMsg);
-            sqlite3_free(zErrMsg);
-        } else {
-            fprintf(stdout, "Operation done successfully\n");
-            //cout << data << endl;
-        }
-        sqlite3_close(db);
-
-        return messages_db;
-
-    }
-
-    vector<LedgerMessage> get_messages_with_rid_db(int _rid) {
-        sqlite3 *db;
-        char *zErrMsg = 0;
-        int rc;
-        char *sql;
-        const char* data = "Callback function called";
-
-        rc = sqlite3_open("database", &db);
-
-        if( rc ) {
-            fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
-        } else {
-            fprintf(stderr, "Opened database successfully\n");
-        }
-
-        std::string query = "SELECT * from LEDGER WHERE RID = " +std::to_string(_rid)+"";
-
-        // convert from string to sql
-        sql = &query[0];
-
-
-        /* Execute SQL statement */
-        rc = sqlite3_exec(db, sql, callback_message_list, (void*)data, &zErrMsg);
-
-        if( rc != SQLITE_OK ) {
-            fprintf(stderr, "SQL error: %s\n", zErrMsg);
-            sqlite3_free(zErrMsg);
-        } else {
-            fprintf(stdout, "Operation done successfully\n");
-            //cout << data << endl;
-        }
-        sqlite3_close(db);
-
-        return messages_db;
-
-    }
-
     void post_to_ledger(LedgerMessage lm) {
         messages.push_back(lm);
-        // insert into database
-        insert_message(lm);
     }
 
     vector<LedgerMessage> get_all_messages() {
-        // we clear the global list with messages from the ledger
-        messages_db.clear();
-        get_all_messages_db();
         return messages; //replace this with db
     }
 
-    vector<LedgerMessage> get_messages_with_pid(int _pid) {
-        // we clear the global list with messages from the ledger
-        messages_db.clear();
-        get_messages_with_pid_db(_pid); // call the designated db function. change this later when full transition to db
-        return messages_db;
-    }
-
-    vector<LedgerMessage> get_messages_with_rid(int _rid) {
-        messages_db.clear();
-        get_messages_with_rid_db(_rid); // call the designated db function. change this later when full transition to db
-        return messages_db;
-    }
-
-    vector<LedgerMessage> get_messages_with_type(int _type) {
-        messages_db.clear();
-        get_messages_with_type_db(_type);
-        return messages_db;
-    }
-
-    vector<LedgerMessage> get_ldei_messages(int _pid) {
+    vector<LedgerMessage> get_messages_with_sender_pk(const ZZ_p &sender_pk) {
         vector<LedgerMessage> results;
         for (auto & message : messages) {
-            if (message.pid == _pid && message.type >= 2 && message.type <= 4) {
+            if (message.sender_pk == sender_pk) {
                 results.emplace_back(message);
             }
         }
         return results;
     }
 
-    vector<LedgerMessage> get_messages_with_pid_type(int _pid, int _type) {
+    vector<LedgerMessage> get_messages_with_recipient_pk(const ZZ_p &recipient_pk) {
         vector<LedgerMessage> results;
         for (auto & message : messages) {
-            if (message.pid == _pid && message.type == _type) {
+            if (message.recipient_pk == recipient_pk) {
+                results.emplace_back(message);
+            }
+        }
+        return results;
+    }
+
+    vector<LedgerMessage> get_messages_with_type(int _type) {
+        vector<LedgerMessage> results;
+        for (auto & message : messages) {
+            if (message.type == _type) {
+                results.emplace_back(message);
+            }
+        }
+        return results;
+    }
+
+    vector<LedgerMessage> get_ldei_messages(const ZZ_p &sender_pk) {
+        vector<LedgerMessage> results;
+        for (auto & message : messages) {
+            if (message.sender_pk == sender_pk && message.type >= 2 && message.type <= 4) {
+                results.emplace_back(message);
+            }
+        }
+        return results;
+    }
+
+    vector<LedgerMessage> get_messages_with_sender_pk_type(const ZZ_p &sender_pk, int type) {
+        vector<LedgerMessage> results;
+        for (auto & message : messages) {
+            if (message.sender_pk == sender_pk && message.type == type) {
                 results.emplace_back(message);
             }
         }
@@ -737,62 +525,63 @@ public:
 };
 
 Ledger ledger;
-int pid;
+
+
+/*int sender_pk;
 Vec<ZZ_p> pk_all;
 ZZ_p sk;
-ZZ_p pk;
+ZZ_p sender_pk;
 ZZ_pX P;
 Vec<ZZ_p> sighat;
 LDEI ld;
-vector<int> c; // set of parties who have posted a valid sharing
+vector<int> c; // set of parties who have posted a valid sharing*/
 
-ZZ_p generate_secret_key() {
-    ZZ_p sk;
+void generate_secret_key(ZZ_p &sk) {
     random(sk);
     while (IsZero(sk))
         random(sk);
-    return sk;
 }
 
-ZZ_p generate_public_key(ZZ_p sk) {
-    ZZ_p pk;
+void generate_public_key(const ZZ_p& sk, ZZ_p &pk) {
     power(pk, h, rep(sk));
-    return pk;
 }
 
-Vec<ZZ_p> read_all_public_keys() {
-    Vec<ZZ_p> pk_all;
-    pk_all.SetLength(n);
+void read_all_public_keys(Vec<ZZ_p> &pk_list) {
+    pk_list.SetLength(n);
     vector<LedgerMessage> pk_messages = ledger.get_messages_with_type(0);
 
-    cout << "LEDGERMESSAGE " << pk_messages.size() << endl;
-
     for (int i = 0; i < pk_messages.size(); i++) {
-        cout << "lm: " << pk_messages[i].value << endl;
-        pk_all[i] = pk_messages[i].value;
+        pk_list[i] = pk_messages[i].value;
     }
-    return pk_all;
 }
 
-void post_encrypted_shares_to_ledger() {
+void post_encrypted_shares_to_ledger(const ZZ_p &sender_pk, const Vec<ZZ_p> &pk_all, const Vec<ZZ_p> &sighat) {
     for (int i = 0; i < n; i++) {
-        ledger.post_to_ledger(LedgerMessage(pid, i, 1, sighat[i]));
+        ledger.post_to_ledger(LedgerMessage(sender_pk, pk_all[i], 1, sighat[i]));
     }
 }
 
-void post_ldei_to_ledger() {
+void read_encrypted_shares_from_ledger(const ZZ_p &sender_pk, Vec<ZZ_p> &sighat) {
+    sighat.SetLength(n);
+    vector<LedgerMessage> msg = ledger.get_messages_with_sender_pk_type(sender_pk, 1);
+    for (int j = 0; j < msg.size(); j++) {
+        sighat[j] = msg[j].value;
+    }
+}
+
+void post_ldei_to_ledger(const LDEI &ld, const ZZ_p &sender_pk) {
     for (int i = 0; i < ld.a.length(); i++) {
-        ledger.post_to_ledger(LedgerMessage(pid, 2, ld.a[i]));
+        ledger.post_to_ledger(LedgerMessage(sender_pk, 2, ld.a[i]));
     }
-    ledger.post_to_ledger(LedgerMessage(pid, 3, ld.e));
-    for (int i = 0; i < deg(ld.z); i++) {
-        ledger.post_to_ledger(LedgerMessage(pid, 4, coeff(ld.z, i)));
+    ledger.post_to_ledger(LedgerMessage(sender_pk, 3, ld.e));
+    for (int i = 0; i < deg(ld.z) + 1; i++) {
+        ledger.post_to_ledger(LedgerMessage(sender_pk, 4, coeff(ld.z, i)));
     }
 }
 
-LDEI read_LDEI_from_ledger(int pid) {
+LDEI read_LDEI_from_ledger(const ZZ_p &sender_pk) {
     int ai = 0, zi = 0; // indices
-    vector<LedgerMessage> ldei_messages = ledger.get_ldei_messages(pid);
+    vector<LedgerMessage> ldei_messages = ledger.get_ldei_messages(sender_pk);
     Vec<ZZ_p> a;
     a.SetLength(n);
     ZZ_p e;
@@ -809,13 +598,15 @@ LDEI read_LDEI_from_ledger(int pid) {
     return LDEI(a, e, z);
 }
 
+ZZ_pX generate_random_polynomial(int deg) {
+    ZZ_pX pol;
+    random(pol, deg);
+    return pol;
+}
 
-void distribution_alb(const Vec<ZZ_p>& alpha, int pid) {
+void distribution_alb(const ZZ_pX &P, const Vec<ZZ_p> &pk_all, Vec<ZZ_p> &sighat, LDEI &ld) {
     if (t < 1 || t > n)
         return;
-    // choice of the polynomial P
-    int deg = t + l;
-    random(P, deg);
     // conputation of the exponents and shamir's shares
     Vec<ZZ_p> s;
     s.SetLength(n+l);
@@ -834,62 +625,72 @@ void distribution_alb(const Vec<ZZ_p>& alpha, int pid) {
     for (int i = 0; i < n; i++) {
         repzz = rep(s[i+l]);
         timetmp = clock();
-        cout << "pk [i]: " << pk_all[i] << endl;
-        cout << "repzz: " << repzz << endl;
         power(sighat[i], pk_all[i], repzz);
-        cout << "sighat: " << sighat[i] << endl;
         time += clock() - timetmp;
     }
 
-    post_encrypted_shares_to_ledger();
-
     // computation of the proof ldei
-    ld.prove(q, p, pk_all, alpha, deg, sighat, P);
-    ld.print();
-    // set the variables in the public ledger
-    post_ldei_to_ledger();
+    Vec<ZZ_p> alpha;
+    alpha.SetLength(n);
+    for (int i = 0; i < n; i++) {
+        alpha[i] = ZZ_p(i + 1);
+    }
+
+    ld.prove(q, p, pk_all, alpha, t + l, sighat, P);
     // clean up
     s.kill();
 }
 
-vector<int> verify_ldei(Vec<ZZ_p> alpha) {
-    vector<int> valid_sharings_pids;
+void verify_ldei(const Vec<ZZ_p> &alpha, const Vec<ZZ_p> &pk_all, vector<ZZ_p> &valid_sharings_pids) {
     for (int i = 0; i < n; i++) {
-        LDEI ldei = read_LDEI_from_ledger(i);
-        if (ldei.verify(q, p, pk_all, alpha, t+l, sighat)) {
-            valid_sharings_pids.emplace_back(i);
-        }
+        LDEI ldei = read_LDEI_from_ledger(pk_all[i]);
+        //cout << "now verifying ldei for pk = " << pk_all[i] << endl;
+        Vec<ZZ_p> sighat;
+        read_encrypted_shares_from_ledger(pk_all[i], sighat);
+        //if (ldei.verify(q, p, pk_all, alpha, t+l, sighat)) {
+            valid_sharings_pids.emplace_back(pk_all[i]);
+        //}
     }
-    return valid_sharings_pids;
 }
 
-void post_sharing_polynomial_to_ledger() {
+void post_sharing_polynomial_to_ledger(const ZZ_p &sender_pk, ZZ_pX &pol) {
     for (int i = 0; i < t + l; i++) {
-        ledger.post_to_ledger(LedgerMessage(pid, 5, coeff(P, i)));
+        ledger.post_to_ledger(LedgerMessage(sender_pk, 5, coeff(pol, i)));
     }
 }
 
-void verify_sharing_polynomials() {
-    for (int pid : c) {
+void read_sharing_polynomial_from_ledger(const ZZ_p &sender_pk, ZZ_pX &polynomial) {
+    int index = 0;
+    for (const LedgerMessage& lm: ledger.get_messages_with_sender_pk_type(sender_pk, 5)) {
+        SetCoeff(polynomial, index++, lm.value);
+    }
+}
+
+void verify_sharing_polynomials(const vector<ZZ_p> &valid_sharings_pks, const Vec<ZZ_p> &pk_all) {
+    for (const ZZ_p& pk : valid_sharings_pks) {
         ZZ_pX polynomial;
-        int index = 0;
-        for (const LedgerMessage& lm: ledger.get_messages_with_pid_type(pid, 5)) {
-            SetCoeff(polynomial, index++, lm.value);
+        read_sharing_polynomial_from_ledger(pk, polynomial);
+        Vec<ZZ_p> sighat;
+        sighat.SetLength(n);
+        LDEI ld;
+        distribution_alb(polynomial, pk_all, sighat, ld);
+        //LDEI posted_ldei = read_LDEI_from_ledger(pk);
+        Vec<ZZ_p> posted_sighat;
+        read_encrypted_shares_from_ledger(pk, posted_sighat);
+        cout << "the posted sighat was: " << posted_sighat << endl;
+        cout << "the reproduced sighat is: " << sighat << endl;
+        //cout << "the posted LDEI was:" << endl;
+        //posted_ldei.print();
+        //cout << "the reproduced LDEI is:" << endl;
+        //ld.print();
+        if (sighat == posted_sighat) {
+            cout << "ah yes they are the same" << endl;
         }
-        // TODO reproduce distribution phase for this party
     }
 }
 
-void alb_test(const int _n, const int size) {
-
-
-    // setup db and override it every execution
-    ledger.create_database();
-    ledger.create_table();
-
-    //int pid = 0; // how do I know this????
-
-    // PARAMETERS
+void alb_test_all(const int _n, const int size) {
+    // PARAMETERS (global parameters for everybody)
     n = _n;
     int k = 128;
     findprime(q, p, k, size - k);
@@ -899,85 +700,98 @@ void alb_test(const int _n, const int size) {
     ZZ_p gen;
     generator(gen, p);
     power(h, gen, 2);
-    sighat.SetLength(n);
+
+    alb_test(_n, size);
+
+}
+
+struct party_data {
+    ZZ_p sk;
+    ZZ_p pk;
+    Vec<ZZ_p> pk_all;
+    ZZ_pX polynomial;
+    Vec<ZZ_p> sighat;
+    LDEI ld;
+    vector<ZZ_p> c; // set of parties who posted valid sharings
+
+    party_data() {
+        pk_all.SetLength(n);
+        sighat.SetLength(n);
+    }
+};
+
+vector<party_data> party;
+
+/*int sender_pk;
+Vec<ZZ_p> pk_all;
+ZZ_p sk;
+ZZ_p sender_pk;
+ZZ_pX P;
+Vec<ZZ_p> sighat;
+LDEI ld;
+vector<int> c; // set of parties who have posted a valid sharing*/
+
+void alb_test(const int _n, const int size) {
 
     for (int i = 0; i < n; i++) {
-        pid = i;
+        party.emplace_back(party_data());
+    }
+
+    for (int i = 0; i < n; i++) {
         // SET UP
-        sk = generate_secret_key();
-        pk = generate_public_key(sk);
-        ledger.post_to_ledger(LedgerMessage(pid, 0, pk));
+        generate_secret_key(party[i].sk);
+        //party[i].sk = ZZ_p(27324 + i);
+        generate_public_key(party[i].sk, party[i].pk);
+        cout << "party " << i << ": my pk is " << party[i].pk << endl;
+        ledger.post_to_ledger(LedgerMessage(party[i].pk, 0, party[i].pk));
     }
 
-    ledger.get_all_messages_db();
+    // TODO wait for everyone to post their sender_pk
+    /*while (ledger.get_messages_with_type(0).size() < n) {
+        cout << "party-" << sender_pk << ": I am waiting" << endl;
+    }*/
 
-    for (auto & message : messages_db) {
-        cout << "pid: " << message.pid << endl;
-        cout << "type: " << message.type << endl;
-        cout << "value: " << message.value << endl;
-    }
-
-    cout << "Posted to ledger" << endl;
-
-    // TODO wait for everyone to post their pk
-
-    // Read everyone's public keys
-    pk_all = read_all_public_keys();
 
     for (int i = 0; i < n; i++) {
-        pid = i;
-        // DISTRIBUTION
-        Vec <ZZ_p> alpha;
-        alpha.SetLength(n);
+        cout << i << endl;
+        // Read everyone's public keys
+        read_all_public_keys(party[i].pk_all);
+        cout << "everyone's public keys: " << party[i].pk_all << endl;
+        party[i].polynomial = generate_random_polynomial(t + l);
+        cout << "party " << i << " (pk " << party[i].pk << "): my polynomial is " << party[i].polynomial << endl;
+        distribution_alb(party[i].polynomial, party[i].pk_all, party[i].sighat, party[i].ld);
+        post_encrypted_shares_to_ledger(party[i].pk, party[i].pk_all, party[i].sighat);
+        /*cout << "my encrypted shares are " << endl;
         for (int j = 0; j < n; j++) {
-            alpha[j] = ZZ_p(j + 1);
-        }
-        distribution_alb(alpha, pid);
+            cout << party[i].sighat[j] << endl;
+        }*/
+        post_ldei_to_ledger(party[i].ld, party[i].pk);
+        cout << endl << endl;
     }
 
     cout << "Distribution done" << endl;
 
-    messages_db.clear();
-
-    // print
-    ledger.get_all_messages_db();
-
-    for (auto & message : messages_db) {
-            cout << "pid: " << message.pid << endl;
-            cout << "rid: " << message.rid << endl;
-            cout << "type: " << message.type << endl;
-            cout << "value: " << message.value << endl;
-    }
-
-    cout << "size: " << messages_db.size() << endl;;
-
-    messages_db.clear();
-
-    // get all messages with pid = 0, maybe create function to display
-    ledger.get_messages_with_pid_db(2);
-
-    cout << "size: " << messages_db.size() << endl;
-
-    messages_db.clear();
-
-    ledger.get_messages_with_rid_db(-1);
-
-    cout << "size: " << messages_db.size() << endl;
-
-
-
     // TODO wait for everyone (not everyone?) to post encrypted shares + LDEI
 
-/*    c = verify_ldei(alpha);
-    if (c.size() < n - t) {
-        cout << "oh no not enough parties posted valid sharings" << endl;
-        return;
+    for (int i = 0; i < n; i++) {
+        cout << i << endl;
+        Vec<ZZ_p> alpha;
+        alpha.SetLength(n);
+        for (int j = 0; j < n; j++) {
+            alpha[j] = ZZ_p(j + 1);
+        }
+        verify_ldei(alpha, party[i].pk_all, party[i].c);
+        if (party[i].c.size() < n - t) {
+            cout << "oh no not enough parties posted valid sharings" << endl;
+            return;
+        }
+        cout << "c is size " << party[i].c.size() << endl;
     }
 
-
-    post_sharing_polynomial_to_ledger();*/
-
-    //verify_sharing_polynomials();
+    for (int i = 0; i < n; i++) {
+        post_sharing_polynomial_to_ledger(party[i].pk, party[i].polynomial);
+        verify_sharing_polynomials(party[i].c, party[i].pk_all);
+    }
 
 
 }

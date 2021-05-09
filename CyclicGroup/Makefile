@@ -7,7 +7,7 @@ INCDIR = include
 SRC = $(wildcard $(SRCDIR)/*.cpp)
 OBJ = $(SRC:.cpp=.o)
 
-LDLIBS = -lntl -lgmp -lm -lcryptopp
+LDLIBS = -lntl -lgmp -lm -lcryptopp -lsqlite3
 CXXFLAGS = -Wall -Wextra -O3 -std=c++11 -pthread -march=native
 INCLUDES = -I$(INCDIR)
 

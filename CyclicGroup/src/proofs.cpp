@@ -35,6 +35,10 @@ const long k, const Vec<ZZ_p>& x, const ZZ_pX& P) {
   else {
     //create the vector a
     ZZ_pX R = random_ZZ_pX(k+1);
+    /*ZZ_pX R;
+    for (int i = 0; i < k; i++) {
+        SetCoeff(R, i, ZZ_p(47 + i));
+    }*/
     Vec<ZZ_p> R_eval = eval(R, alpha);
     ZZ_p::init(p);
     // create proof structure
@@ -82,8 +86,12 @@ const long k, const Vec<ZZ_p>& x) {
     power(tmp2, g[i], rep(zi[i]));
     power(tmp3, x[i], rep(e));
     mul(tmp1, tmp3, a[i]);
+    //cout << "\n\ntmp2: " << tmp2 << endl;
+    //cout << "tmp3: " << tmp3 << endl;
+    //cout << "tmp1: " << tmp1 << endl;
     if (tmp2 != tmp1) {
       cout << "Verification not passed: bad a_i\n";
+      //cout << "btw i is " << i << endl;
       zi.kill();
       return false;
     }

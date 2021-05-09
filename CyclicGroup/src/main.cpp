@@ -100,7 +100,7 @@ int main(int argc, char *argv[]) {
 
   if (alb) {
       cout << "execution of albatross protocol\n\n";
-      alb_test(n,size);
+      alb_test_all(n,size);
   }
 
   if (ppvss) {
