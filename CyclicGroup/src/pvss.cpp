@@ -604,18 +604,17 @@ ZZ_pX generate_random_polynomial(int deg) {
     return pol;
 }
 
-void distribution_alb(const ZZ_pX &P, const Vec<ZZ_p> &pk_all, Vec<ZZ_p> &sighat, LDEI &ld) {
+void distribution_alb(const ZZ_pX &P, const Vec<ZZ_p> &pk_all, Vec<ZZ_p> &secrets, Vec<ZZ_p> &sighat, LDEI &ld) {
     if (t < 1 || t > n)
         return;
     // conputation of the exponents and shamir's shares
-    Vec<ZZ_p> s;
-    s.SetLength(n+l);
+    //secrets.SetLength(n+l);
     ZZ_p tmp;
     ZZ repzz;
     clock_t time = 0, timetmp;
     for (int i = -l+1; i <= n; i++) {
         tmp = ZZ_p(i);
-        eval(s[i + l - 1], P, tmp);
+        eval(secrets[i + l - 1], P, tmp);
     }
 
     timetmp = clock();
@@ -623,7 +622,7 @@ void distribution_alb(const ZZ_pX &P, const Vec<ZZ_p> &pk_all, Vec<ZZ_p> &sighat
     ZZ_pPush push(p);
     // computation of encrypted shares
     for (int i = 0; i < n; i++) {
-        repzz = rep(s[i+l]);
+        repzz = rep(secrets[i+l]);
         timetmp = clock();
         power(sighat[i], pk_all[i], repzz);
         time += clock() - timetmp;
@@ -638,7 +637,7 @@ void distribution_alb(const ZZ_pX &P, const Vec<ZZ_p> &pk_all, Vec<ZZ_p> &sighat
 
     ld.prove(q, p, pk_all, alpha, t + l, sighat, P);
     // clean up
-    s.kill();
+    //s.kill();
 }
 
 void verify_ldei(const Vec<ZZ_p> &alpha, const Vec<ZZ_p> &pk_all, vector<ZZ_p> &valid_sharings_pids) {
@@ -666,19 +665,20 @@ void read_sharing_polynomial_from_ledger(const ZZ_p &sender_pk, ZZ_pX &polynomia
     }
 }
 
-void verify_sharing_polynomials(const vector<ZZ_p> &valid_sharings_pks, const Vec<ZZ_p> &pk_all, vector<ZZ_p> &invalid_sharing_polynomials_pks) {
-    for (const ZZ_p& pk : valid_sharings_pks) {
+void verify_sharing_polynomials(const vector<ZZ_p> &valid_sharings_pks, const Vec<ZZ_p> &pk_all, vector<ZZ_p> &invalid_sharing_polynomials_pks, Mat<ZZ_p> &S) {
+    for (int i = 0; i < n; i++) {
+        ZZ_p pk = valid_sharings_pks[i];
         ZZ_pX polynomial;
         read_sharing_polynomial_from_ledger(pk, polynomial);
         Vec<ZZ_p> sighat;
         sighat.SetLength(n);
         LDEI ld;
-        distribution_alb(polynomial, pk_all, sighat, ld);
+        distribution_alb(polynomial, pk_all, S[i], sighat, ld);
         //LDEI posted_ldei = read_LDEI_from_ledger(pk);
         Vec<ZZ_p> posted_sighat;
         read_encrypted_shares_from_ledger(pk, posted_sighat);
-        cout << "the posted sighat was: " << posted_sighat << endl;
-        cout << "the reproduced sighat is: " << sighat << endl;
+        //cout << "the posted sighat was: " << posted_sighat << endl;
+        //cout << "the reproduced sighat is: " << sighat << endl;
         //cout << "the posted LDEI was:" << endl;
         //posted_ldei.print();
         //cout << "the reproduced LDEI is:" << endl;
@@ -697,6 +697,9 @@ void alb_test_all(const int _n, const int size) {
     findprime(q, p, k, size - k);
     t = n / 3;
     l = n - 2 * t;
+    cout << "t" << t << endl;
+    cout << "l" << l << endl;
+    cout << "q" << q << endl;
     ZZ_p::init(p);
     ZZ_p gen;
     generator(gen, p);
@@ -735,6 +738,31 @@ vector<int> c; // set of parties who have posted a valid sharing*/
 
 void alb_test(const int _n, const int size) {
 
+    /*Mat<ZZ_p> A;
+    Mat<ZZ_p> B;
+    A.SetDims(3, 2);
+    B.SetDims(2, 3);
+    A[0][0] = 3;
+    A[0][1] = 4;
+    A[1][0] = 7;
+    A[1][1] = 2;
+    A[2][0] = 5;
+    A[2][1] = 9;
+
+    B[0][0] = 3;
+    B[0][1] = 1;
+    B[0][2] = 5;
+    B[1][0] = 6;
+    B[1][1] = 9;
+    B[1][2] = 7;
+
+    Mat<ZZ_p> C;
+    mul(C, A, B);
+
+    cout << C << endl;
+
+    return;*/
+
     for (int i = 0; i < n; i++) {
         party.emplace_back(party_data());
     }
@@ -761,7 +789,9 @@ void alb_test(const int _n, const int size) {
         cout << "everyone's public keys: " << party[i].pk_all << endl;
         party[i].polynomial = generate_random_polynomial(t + l);
         cout << "party " << i << " (pk " << party[i].pk << "): my polynomial is " << party[i].polynomial << endl;
-        distribution_alb(party[i].polynomial, party[i].pk_all, party[i].sighat, party[i].ld);
+        Vec<ZZ_p> secrets;
+        secrets.SetLength(n + l);
+        distribution_alb(party[i].polynomial, party[i].pk_all, secrets, party[i].sighat, party[i].ld);
         post_encrypted_shares_to_ledger(party[i].pk, party[i].pk_all, party[i].sighat);
         /*cout << "my encrypted shares are " << endl;
         for (int j = 0; j < n; j++) {
@@ -795,10 +825,45 @@ void alb_test(const int _n, const int size) {
     }
 
     for (int i = 0; i < n; i++) {
-        verify_sharing_polynomials(party[i].c, party[i].pk_all, party[i].c_a);
+        Mat<ZZ_p> S;
+        S.SetDims(party[i].c.size(), n + l);
+        verify_sharing_polynomials(party[i].c, party[i].pk_all, party[i].c_a, S);
         cout << "c_a size: " << party[i].c_a.size() << endl;
         // TODO if c_a.size() > 0, reconstruct!
 
+        Mat<ZZ_p> M;
+        M.SetDims(n + l, party[i].c.size());
+        ZZ w;
+        rootunity(w, 16, q);
+        ZZ_p w_p = to_ZZ_p(w);
+        for (int j = 0; j < M.NumRows(); j++) {
+            for (int k = 0; k < M.NumCols(); k++) {
+                ZZ_p tmp;
+                power(tmp, w_p, j * k);
+                M[j][k] = tmp;
+            }
+        }
+
+        Mat<ZZ_p> U;
+        mul(U, S, M);
+        cout << U.NumRows() << " " << U.NumCols() << endl;
+
+        Mat<ZZ_p> R;
+        cout << party[i].c.size() << endl;
+        cout << (t + l) << endl;
+        R.SetDims(party[i].c.size(), party[i].c.size());
+        for (int j = 0; j < R.NumRows(); j++) {
+            for (int k = 0; k < R.NumCols(); k++) {
+                //cout << "hello1" << endl;
+                ZZ_p tmp;
+                power(tmp, h, rep(U[j][k]));
+                //cout << "hello2" << endl;
+                R[j][k] = tmp;
+                //cout << "hello3" << endl;
+            }
+        }
+
+        cout << R << endl;
 
     }
 
