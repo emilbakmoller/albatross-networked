@@ -775,7 +775,7 @@ void distribution_alb(const ZZ_pX &P, const Vec<ZZ_p> &pk_all, Vec<ZZ_p> &secret
     if (t < 1 || t > n)
         return;
     // conputation of the exponents and shamir's shares
-    //secrets.SetLength(n+l);
+    secrets.SetLength(n+l);
     ZZ_p tmp;
     ZZ repzz;
     clock_t time = 0, timetmp;
@@ -784,15 +784,15 @@ void distribution_alb(const ZZ_pX &P, const Vec<ZZ_p> &pk_all, Vec<ZZ_p> &secret
         eval(secrets[i + l - 1], P, tmp);
     }
 
-    timetmp = clock();
-    time += clock() - timetmp;
+
+
     ZZ_pPush push(p);
     // computation of encrypted shares
     for (int i = 0; i < n; i++) {
         repzz = rep(secrets[i+l]);
-        timetmp = clock();
+
+
         power(sighat[i], pk_all[i], repzz);
-        time += clock() - timetmp;
     }
 
     // computation of the proof ldei
@@ -958,6 +958,9 @@ void alb_test(const int _n, const int size, bool wipedb) {
         party_data();
     //}
 
+    // cant figure out how to call the struct constructor
+    party.sighat.SetLength(n);
+
     // remove this for loop
     //for (int i = 0; i < n; i++) {
         // SET UP
@@ -994,35 +997,24 @@ void alb_test(const int _n, const int size, bool wipedb) {
 
     //}
 
-    cout << "Ready to continue" << endl;
+        cout << "Ready to continue" << endl;
 
-    // TODO wait for everyone to post their sender_pk
-    /*while (ledger.get_messages_with_type(0).size() < n) {
-        cout << "party-" << sender_pk << ": I am waiting" << endl;
-    }*/
 
-/*
 
-    for (int i = 0; i < n; i++) {
-        cout << i << endl;
         // Read everyone's public keys
-        read_all_public_keys(party[i].pk_all);
-        cout << "everyone's public keys: " << party[i].pk_all << endl;
-        party[i].polynomial = generate_random_polynomial(t + l);
-        cout << "party " << i << " (pk " << party[i].pk << "): my polynomial is " << party[i].polynomial << endl;
-        Vec<ZZ_p> secrets;
-        secrets.SetLength(n + l);
-        distribution_alb(party[i].polynomial, party[i].pk_all, secrets, party[i].sighat, party[i].ld);
-        post_encrypted_shares_to_ledger(party[i].pk, party[i].pk_all, party[i].sighat);
-        */
-/*cout << "my encrypted shares are " << endl;
-        for (int j = 0; j < n; j++) {
-            cout << party[i].sighat[j] << endl;
-        }*//*
+        read_all_public_keys(party.pk_all);
+        cout << "everyone's public keys: " << party.pk_all << endl;
+        party.polynomial = generate_random_polynomial(t + l);
 
-        post_ldei_to_ledger(party[i].ld, party[i].pk);
+
+        Vec <ZZ_p> secrets;
+        secrets.SetLength(n + l);
+        distribution_alb(party.polynomial, party.pk_all, secrets, party.sighat, party.ld);
+        post_encrypted_shares_to_ledger(party.pk, party.pk_all, party.sighat);
+
+
+        post_ldei_to_ledger(party.ld, party.pk);
         cout << endl << endl;
-    }
 
     cout << "Distribution done" << endl;
 
@@ -1039,7 +1031,6 @@ void alb_test(const int _n, const int size, bool wipedb) {
             for (auto & message : messages_db) {
                 if (message.type == 3) {
                     ldei_a.emplace_back(1);
-                    // first one isn't counted correctly
                     if (ldei_a.size() == n) {
                         continuerun = true;
                     }
@@ -1050,35 +1041,40 @@ void alb_test(const int _n, const int size, bool wipedb) {
             this_thread::sleep_for(chrono::milliseconds(10000));
         }
 
+        // sleep just to make sure everyone is ready
+        this_thread::sleep_for(chrono::milliseconds(10000));
 
-    for (int i = 0; i < n; i++) {
-        cout << i << endl;
         Vec<ZZ_p> alpha;
         alpha.SetLength(n);
         for (int j = 0; j < n; j++) {
             alpha[j] = ZZ_p(j + 1);
         }
-        verify_ldei(alpha, party[i].pk_all, party[i].c);
-        if (party[i].c.size() < n - t) {
+
+        //figure out when the proces should sleep
+        this_thread::sleep_for(chrono::milliseconds(5000));
+        verify_ldei(alpha, party.pk_all, party.c);
+        if (party.c.size() < n - t) {
             cout << "oh no not enough parties posted valid sharings" << endl;
             return;
         }
-        cout << "c is size " << party[i].c.size() << endl;
-    }
+        cout << "c is size " << party.c.size() << endl;
 
-    for (int i = 0; i < n; i++) {
-        post_sharing_polynomial_to_ledger(party[i].pk, party[i].polynomial);
-    }
 
-    for (int i = 0; i < n; i++) {
+
+        post_sharing_polynomial_to_ledger(party.pk, party.polynomial);
+
+
         Mat<ZZ_p> S;
-        S.SetDims(party[i].c.size(), n + l);
-        verify_sharing_polynomials(party[i].c, party[i].pk_all, party[i].c_a, S);
-        cout << "c_a size: " << party[i].c_a.size() << endl;
+        S.SetDims(party.c.size(), n + l);
+
+        //figure out when the proces should sleep
+        this_thread::sleep_for(chrono::milliseconds(5000));
+        verify_sharing_polynomials(party.c, party.pk_all, party.c_a, S);
+        cout << "c_a size: " << party.c_a.size() << endl;
         // TODO if c_a.size() > 0, reconstruct!
 
         Mat<ZZ_p> M;
-        M.SetDims(n + l, party[i].c.size());
+        M.SetDims(n + l, party.c.size());
         ZZ w;
         rootunity(w, 16, q);
         ZZ_p w_p = to_ZZ_p(w);
@@ -1090,14 +1086,14 @@ void alb_test(const int _n, const int size, bool wipedb) {
             }
         }
 
+        //figure out when the proces should sleep
+        this_thread::sleep_for(chrono::milliseconds(5000));
+
         Mat<ZZ_p> U;
         mul(U, S, M);
-        cout << U.NumRows() << " " << U.NumCols() << endl;
 
         Mat<ZZ_p> R;
-        cout << party[i].c.size() << endl;
-        cout << (t + l) << endl;
-        R.SetDims(party[i].c.size(), party[i].c.size());
+        R.SetDims(party.c.size(), party.c.size());
         for (int j = 0; j < R.NumRows(); j++) {
             for (int k = 0; k < R.NumCols(); k++) {
                 ZZ_p tmp;
@@ -1107,9 +1103,5 @@ void alb_test(const int _n, const int size, bool wipedb) {
         }
         cout << "final rand" << endl;
         cout << R << endl;
-
-    }
-*/
-
 
 }
