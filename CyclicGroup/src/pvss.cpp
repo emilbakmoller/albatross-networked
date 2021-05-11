@@ -7,9 +7,16 @@
 #include <vector>
 #include <sstream>
 #include <thread>
+#include <chrono>
+#include <sstream>
+#include <fstream>
+
+
+
 
 #include <NTL/ZZ_pX.h>
 #include <sqlite3.h>
+#include <mysql.h>
 
 #include "pvss.hpp"
 #include "proofs.hpp"
@@ -451,6 +458,12 @@ private:
 public:
     Ledger() = default;
 
+    string dbname;
+    string dbuser;
+    string dbpassword;
+    string dbhost;
+    int dbport;
+
     // TODO find correct place for helper methods
     string ZZ_p_to_string(const ZZ_p &z) {
         stringstream buffer;
@@ -465,16 +478,21 @@ public:
     }
 
     void post_to_ledger(LedgerMessage lm) {
+        insert_db(lm);
         messages.push_back(lm);
     }
 
     vector<LedgerMessage> get_all_messages() {
-        return messages; //replace this with db
+        vector<LedgerMessage> messages_db;
+        messages_db = get_all_db();
+        return messages_db; //replace this with db
     }
 
     vector<LedgerMessage> get_messages_with_sender_pk(const ZZ_p &sender_pk) {
         vector<LedgerMessage> results;
-        for (auto & message : messages) {
+        vector<LedgerMessage> messages_db;
+        messages_db = get_all_db();
+        for (auto & message : messages_db) {
             if (message.sender_pk == sender_pk) {
                 results.emplace_back(message);
             }
@@ -484,7 +502,9 @@ public:
 
     vector<LedgerMessage> get_messages_with_recipient_pk(const ZZ_p &recipient_pk) {
         vector<LedgerMessage> results;
-        for (auto & message : messages) {
+        vector<LedgerMessage> messages_db;
+        messages_db = get_all_db();
+        for (auto & message : messages_db) {
             if (message.recipient_pk == recipient_pk) {
                 results.emplace_back(message);
             }
@@ -494,7 +514,9 @@ public:
 
     vector<LedgerMessage> get_messages_with_type(int _type) {
         vector<LedgerMessage> results;
-        for (auto & message : messages) {
+        vector<LedgerMessage> messages_db;
+        messages_db = get_all_db();
+        for (auto & message : messages_db) {
             if (message.type == _type) {
                 results.emplace_back(message);
             }
@@ -504,7 +526,9 @@ public:
 
     vector<LedgerMessage> get_ldei_messages(const ZZ_p &sender_pk) {
         vector<LedgerMessage> results;
-        for (auto & message : messages) {
+        vector<LedgerMessage> messages_db;
+        messages_db = get_all_db();
+        for (auto & message : messages_db) {
             if (message.sender_pk == sender_pk && message.type >= 2 && message.type <= 4) {
                 results.emplace_back(message);
             }
@@ -514,13 +538,156 @@ public:
 
     vector<LedgerMessage> get_messages_with_sender_pk_type(const ZZ_p &sender_pk, int type) {
         vector<LedgerMessage> results;
-        for (auto & message : messages) {
+        vector<LedgerMessage> messages_db;
+        messages_db = get_all_db();
+        for (auto & message : messages_db) {
             if (message.sender_pk == sender_pk && message.type == type) {
                 results.emplace_back(message);
             }
         }
         return results;
     }
+
+    void get_db_credentials() {
+        std::ifstream input( "/Users/mathiasmalling/Desktop/Bachelor/albatross-networked/CyclicGroup/src/dbconnection.txt" );
+
+        int i;
+        i = 0;
+        for(string line; getline( input, line ); )
+        {
+            if (i == 0) {
+                dbuser = line;
+            }
+            if (i == 1) {
+                dbpassword = line;
+            }
+            if (i == 2) {
+                dbhost = line;
+            }
+            if (i == 3) {
+                dbname = line;
+            }
+            if (i == 4) {
+                dbport = stoi(line);
+            }
+            i++;
+
+        }
+    }
+
+    vector<LedgerMessage> get_all_db() {
+        MYSQL_RES *result;
+        MYSQL_ROW row;
+        MYSQL *connection, mysql;
+
+        vector<LedgerMessage> messages_db;
+
+        int state;
+
+        mysql_init(&mysql);
+
+        connection = mysql_real_connect(&mysql,dbhost.data(),dbuser.data(),dbpassword.data(),dbname.data(),dbport,0,0);
+
+        // cout << connection;
+        if (connection == NULL)
+        {
+            std::cout << mysql_error(&mysql) << std::endl;
+            // return tables;
+        }
+
+        state = mysql_query(connection, "SELECT * FROM Ledger;");
+
+
+        if (state !=0)
+        {
+            std::cout << mysql_error(connection) << std::endl;
+        }
+
+        result = mysql_store_result(connection);
+
+
+        while ( ( row=mysql_fetch_row(result)) != NULL )
+        {
+            LedgerMessage m = LedgerMessage(string_to_ZZ_p(row[0]), string_to_ZZ_p(row[1]),stoi(row[2]), string_to_ZZ_p(row[3]));
+            //cout << row[0] << "," << row[1] << "," << row[2] << "," << row[3] << std::endl;
+            messages_db.emplace_back(m);
+        }
+
+        mysql_free_result(result);
+        mysql_close(connection);
+
+        return messages_db;
+    }
+
+    void create_table_db() {
+        MYSQL_RES *result;
+        MYSQL_ROW row;
+        MYSQL *connection, mysql;
+
+        int state;
+
+        mysql_init(&mysql);
+
+        connection = mysql_real_connect(&mysql,dbhost.data(),dbuser.data(),dbpassword.data(),dbname.data(),dbport,0,0);
+
+        // cout << connection;
+        if (connection == NULL)
+        {
+            std::cout << mysql_error(&mysql) << std::endl;
+            // return tables;
+        }
+
+        mysql_query(connection, "DROP TABLE IF EXISTS Ledger;");
+
+        state = mysql_query(connection, "CREATE TABLE Ledger(PID VARCHAR(250) NOT NULL,RID VARCHAR(250) NOT NULL,TYPE INT NOT NULL, VALUE VARCHAR(250));");
+
+        if (state !=0)
+        {
+            std::cout << mysql_error(connection) << std::endl;
+        }
+
+
+        //total number of rows in result
+        //std::cout << "number of rows: " << mysql_num_rows(result) << std::endl;
+
+        mysql_close(connection);
+    }
+
+
+
+    void insert_db(LedgerMessage lm) {
+        MYSQL_RES *result;
+        MYSQL_ROW row;
+        MYSQL *connection, mysql;
+
+        int state;
+
+        mysql_init(&mysql);
+
+        connection = mysql_real_connect(&mysql,dbhost.data(),dbuser.data(),dbpassword.data(),dbname.data(),dbport,0,0);
+
+        if (connection == NULL)
+        {
+            cout << mysql_error(&mysql) << std::endl;
+
+        }
+
+        string query = "INSERT INTO Ledger(PID, RID, TYPE, VALUE) VALUES("+ZZ_p_to_string(lm.sender_pk)+","+ZZ_p_to_string(lm.recipient_pk)+","+std::to_string(lm.type)+","+ZZ_p_to_string(lm.value)+")";
+
+        state = mysql_query(connection, query.data());
+
+        if (state !=0)
+        {
+            cout << mysql_error(connection) << std::endl;
+        }
+
+
+        //total number of rows in result
+        //std::cout << "number of rows: " << mysql_num_rows(result) << std::endl;
+
+        mysql_close(connection);
+    }
+
 
 };
 
@@ -690,7 +857,8 @@ void verify_sharing_polynomials(const vector<ZZ_p> &valid_sharings_pks, const Ve
     }
 }
 
-void alb_test_all(const int _n, const int size) {
+
+void alb_test_all(const int _n, const int size, bool wipedb) {
     // PARAMETERS (global parameters for everybody)
     n = _n;
     int k = 128;
@@ -705,7 +873,7 @@ void alb_test_all(const int _n, const int size) {
     generator(gen, p);
     power(h, gen, 2);
 
-    alb_test(_n, size);
+    alb_test(_n, size, wipedb);
 
 }
 
@@ -725,7 +893,8 @@ struct party_data {
     }
 };
 
-vector<party_data> party;
+party_data party;
+
 
 /*int sender_pk;
 Vec<ZZ_p> pk_all;
@@ -736,7 +905,7 @@ Vec<ZZ_p> sighat;
 LDEI ld;
 vector<int> c; // set of parties who have posted a valid sharing*/
 
-void alb_test(const int _n, const int size) {
+void alb_test(const int _n, const int size, bool wipedb) {
 
     /*Mat<ZZ_p> A;
     Mat<ZZ_p> B;
@@ -763,24 +932,76 @@ void alb_test(const int _n, const int size) {
 
     return;*/
 
-    for (int i = 0; i < n; i++) {
-        party.emplace_back(party_data());
+    cout << "clean ledger: " << wipedb << endl;
+
+    ledger.get_db_credentials();
+
+    // if wipedb == 1, we wipe the ledger table
+    if (wipedb == 1) {
+        ledger.create_table_db();
     }
 
-    for (int i = 0; i < n; i++) {
+
+    // dummy
+/*    LedgerMessage m = LedgerMessage(ZZ_p(8),ZZ_p(1),1,ZZ_p(1));
+    ledger.insert_db(m);
+    ledger.insert_db(m);
+    ledger.insert_db(m);
+    ledger.get_all_db();
+    ledger.insert_db(m);
+    ledger.insert_db(m);
+    ledger.insert_db(m);*/
+
+
+
+    //for (int i = 0; i < n; i++) {
+        party_data();
+    //}
+
+    // remove this for loop
+    //for (int i = 0; i < n; i++) {
         // SET UP
-        generate_secret_key(party[i].sk);
+        generate_secret_key(party.sk);
         //party[i].sk = ZZ_p(27324 + i);
-        generate_public_key(party[i].sk, party[i].pk);
-        cout << "party " << i << ": my pk is " << party[i].pk << endl;
-        ledger.post_to_ledger(LedgerMessage(party[i].pk, 0, party[i].pk));
-    }
+        generate_public_key(party.sk, party.pk);
+        cout << "my pk is " << party.pk << endl;
+        ledger.post_to_ledger(LedgerMessage(party.pk, 0, party.pk));
+
+        /*
+         * when the number of public keys in the ledger reaches n, we are ready to continue executing
+         * */
+
+        bool startsignal;
+        startsignal = false;
+
+        while (startsignal == false) {
+            vector<LedgerMessage> messages_db = ledger.get_all_db();
+            vector<int> pks;
+            for (auto & message : messages_db) {
+                if (message.type == 0) {
+                    pks.emplace_back(1);
+                    // first one isn't counted correctly
+                    if (pks.size() == n) {
+                        startsignal = true;
+                    }
+                }
+            }
+            cout << "Total PKs found: " << pks.size() << endl;
+            cout << "n: " << n << endl;
+            cout << "checking for start signal..." << endl;
+            this_thread::sleep_for(chrono::milliseconds(10000));
+        }
+
+    //}
+
+    cout << "Ready to continue" << endl;
 
     // TODO wait for everyone to post their sender_pk
     /*while (ledger.get_messages_with_type(0).size() < n) {
         cout << "party-" << sender_pk << ": I am waiting" << endl;
     }*/
 
+/*
 
     for (int i = 0; i < n; i++) {
         cout << i << endl;
@@ -793,10 +1014,12 @@ void alb_test(const int _n, const int size) {
         secrets.SetLength(n + l);
         distribution_alb(party[i].polynomial, party[i].pk_all, secrets, party[i].sighat, party[i].ld);
         post_encrypted_shares_to_ledger(party[i].pk, party[i].pk_all, party[i].sighat);
-        /*cout << "my encrypted shares are " << endl;
+        */
+/*cout << "my encrypted shares are " << endl;
         for (int j = 0; j < n; j++) {
             cout << party[i].sighat[j] << endl;
-        }*/
+        }*//*
+
         post_ldei_to_ledger(party[i].ld, party[i].pk);
         cout << endl << endl;
     }
@@ -804,6 +1027,29 @@ void alb_test(const int _n, const int size) {
     cout << "Distribution done" << endl;
 
     // TODO wait for everyone (not everyone?) to post encrypted shares + LDEI
+
+    // when ldei. a == n, then we can assume everyone has posted their share?
+
+        bool continuerun;
+        continuerun = false;
+
+        while (continuerun == false) {
+            vector<LedgerMessage> messages_db = ledger.get_all_db();
+            vector<int> ldei_a;
+            for (auto & message : messages_db) {
+                if (message.type == 3) {
+                    ldei_a.emplace_back(1);
+                    // first one isn't counted correctly
+                    if (ldei_a.size() == n) {
+                        continuerun = true;
+                    }
+                }
+            }
+            cout << "Total LDEI.a found: " << ldei_a.size() << endl;
+            cout << "checking for signal to continue" << endl;
+            this_thread::sleep_for(chrono::milliseconds(10000));
+        }
+
 
     for (int i = 0; i < n; i++) {
         cout << i << endl;
@@ -854,18 +1100,16 @@ void alb_test(const int _n, const int size) {
         R.SetDims(party[i].c.size(), party[i].c.size());
         for (int j = 0; j < R.NumRows(); j++) {
             for (int k = 0; k < R.NumCols(); k++) {
-                //cout << "hello1" << endl;
                 ZZ_p tmp;
                 power(tmp, h, rep(U[j][k]));
-                //cout << "hello2" << endl;
                 R[j][k] = tmp;
-                //cout << "hello3" << endl;
             }
         }
-
+        cout << "final rand" << endl;
         cout << R << endl;
 
     }
+*/
 
 
 }

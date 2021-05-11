@@ -14,7 +14,7 @@
 int main(int argc, char *argv[]) {
   int optc;
   int n = 1024,size = 1024;
-  bool alb = false, ppvss = false, comp = false, ffte = false;
+  bool alb = false, ppvss = false, comp = false, ffte = false, wipedb = false;
 
   /* long options struct */
   const struct option long_opts[] =
@@ -28,10 +28,11 @@ int main(int argc, char *argv[]) {
     {nullptr,                     0,                 nullptr,  0 },
   };
 
-  const char *opt = "a::p::cf::n:h";
+  const char *opt = "a::p::cf::n:w";
   while ((optc = getopt_long(argc, argv, opt, long_opts, nullptr)) != -1) {
     switch (optc) {
         case 'a':
+            cout << optarg << endl;
             if(optarg != nullptr)
                 size = atoi(optarg);
             alb = true;
@@ -42,7 +43,8 @@ int main(int argc, char *argv[]) {
         ppvss = true;
         break;
       case 'c':
-        comp = true;
+        cout << "Clean ledger" << endl;
+        wipedb = true;
         break;
       case 'f':
         if(optarg != nullptr)
@@ -52,7 +54,8 @@ int main(int argc, char *argv[]) {
       case 'n':
         n = atoi(optarg);
         break;
-      case 'h':
+      case 'w':
+          cout << "wipe" << endl;
       default:
         cout << "\nUsage :\tALBATROSS -p[size_of_q] [-n number_of_participants] [-h]\n"
                 "\tALBATROSS -c [-h]\n"
@@ -100,7 +103,7 @@ int main(int argc, char *argv[]) {
 
   if (alb) {
       cout << "execution of albatross protocol\n\n";
-      alb_test_all(n,size);
+      alb_test_all(n,size, wipedb);
   }
 
   if (ppvss) {
