@@ -444,6 +444,12 @@ struct LedgerMessage {
         type = _type;
         value = _value;
     }
+    LedgerMessage(const ZZ_p &_sender_pk, int _type) {
+        sender_pk = _sender_pk;
+        recipient_pk = ZZ_p(0);
+        type = _type;
+        value = ZZ_p(0);
+    }
 };
 
 
@@ -823,6 +829,7 @@ void post_sharing_polynomial_to_ledger(const ZZ_p &sender_pk, ZZ_pX &pol) {
     for (int i = 0; i < t + l; i++) {
         ledger.post_to_ledger(LedgerMessage(sender_pk, 5, coeff(pol, i)));
     }
+
 }
 
 void read_sharing_polynomial_from_ledger(const ZZ_p &sender_pk, ZZ_pX &polynomial) {
@@ -1013,7 +1020,12 @@ void alb_test(const int _n, const int size, bool wipedb) {
         post_encrypted_shares_to_ledger(party.pk, party.pk_all, party.sighat);
 
 
+
+
         post_ldei_to_ledger(party.ld, party.pk);
+
+        ledger.post_to_ledger(LedgerMessage(party.pk, 1000));
+
         cout << endl << endl;
 
     cout << "Distribution done" << endl;
@@ -1025,33 +1037,17 @@ void alb_test(const int _n, const int size, bool wipedb) {
         bool continuerun;
         continuerun = false;
 
-        while (continuerun == false) {
-            vector<LedgerMessage> messages_db = ledger.get_all_db();
-            vector<int> ldei_a;
-            for (auto & message : messages_db) {
-                if (message.type == 3) {
-                    ldei_a.emplace_back(1);
-                    if (ldei_a.size() == n) {
-                        continuerun = true;
-                    }
-                }
-            }
-            cout << "Total LDEI.a found: " << ldei_a.size() << endl;
+        while (ledger.get_messages_with_type(1000).size() < n) {
             cout << "checking for signal to continue" << endl;
             this_thread::sleep_for(chrono::milliseconds(10000));
         }
 
-        // sleep just to make sure everyone is ready
-        this_thread::sleep_for(chrono::milliseconds(10000));
 
         Vec<ZZ_p> alpha;
         alpha.SetLength(n);
         for (int j = 0; j < n; j++) {
             alpha[j] = ZZ_p(j + 1);
         }
-
-        //figure out when the proces should sleep
-        this_thread::sleep_for(chrono::milliseconds(5000));
         verify_ldei(alpha, party.pk_all, party.c);
         if (party.c.size() < n - t) {
             cout << "oh no not enough parties posted valid sharings" << endl;
@@ -1063,12 +1059,17 @@ void alb_test(const int _n, const int size, bool wipedb) {
 
         post_sharing_polynomial_to_ledger(party.pk, party.polynomial);
 
+        ledger.post_to_ledger(LedgerMessage(party.pk, 1001));
+
+        while (ledger.get_messages_with_type(1001).size() < n) {
+            cout << "checking for signal to continue" << endl;
+            this_thread::sleep_for(chrono::milliseconds(10000));
+        }
+
 
         Mat<ZZ_p> S;
         S.SetDims(party.c.size(), n + l);
 
-        //figure out when the proces should sleep
-        this_thread::sleep_for(chrono::milliseconds(5000));
         verify_sharing_polynomials(party.c, party.pk_all, party.c_a, S);
         cout << "c_a size: " << party.c_a.size() << endl;
         // TODO if c_a.size() > 0, reconstruct!
