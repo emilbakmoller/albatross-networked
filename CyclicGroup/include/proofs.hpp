@@ -17,11 +17,11 @@ class LDEI {
     ZZ_p e;
     ZZ_pX z;
     LDEI();
-    LDEI(const Vec<ZZ_p>& a, ZZ_p e, ZZ_pX z);
+    LDEI(const Vec<ZZ_p>& a, const ZZ_p &e, const ZZ_pX &z);
     ~LDEI() {}
     void print();
-    void prove(const ZZ& q, const ZZ& p, const Vec<ZZ_p>& g, const Vec<ZZ_p>& alpha, const long k, const Vec<ZZ_p>& x, const ZZ_pX& P);
-    bool verify(const ZZ& q, const ZZ& p, const Vec<ZZ_p>& g, const Vec<ZZ_p>& alpha, const long k, const Vec<ZZ_p>& x);
+    void prove(const ZZ& q, const Vec<ZZ_p>& g, const Vec<ZZ_p>& alpha, const long k, const Vec<ZZ_p>& x, const ZZ_pX& P);
+    bool verify(const ZZ& q, const Vec<ZZ_p>& g, const Vec<ZZ_p>& alpha, const long k, const Vec<ZZ_p>& x);
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -29,16 +29,16 @@ class LDEI {
 ////////////////////////////////////////////////////////////////////////////////
 
 class DLEQ {
-  private:
+  public:
     Vec<ZZ_p> a;
     ZZ_p e;
     ZZ z;
-  public:
     DLEQ();
+    DLEQ(const Vec<ZZ_p>& a, const ZZ_p &e, const ZZ &z);
     ~DLEQ() {}
     void print();
-    void prove(const ZZ& q, const ZZ& p, const Vec<ZZ_p>& g, const Vec<ZZ_p>& x, ZZ_p& alpha);
-    bool verify(const ZZ& q, const ZZ& p, const Vec<ZZ_p>& g, const Vec<ZZ_p>& x);
+    void prove(const ZZ& q, const Vec<ZZ_p>& g, const Vec<ZZ_p>& x, ZZ_p& alpha);
+    bool verify(const ZZ& q, const Vec<ZZ_p>& g, const Vec<ZZ_p>& x);
 };
 
 ////////////////////////////////////////////////////////////////////////////////

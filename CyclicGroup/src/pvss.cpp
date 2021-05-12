@@ -138,7 +138,9 @@ clock_t setup(pl_t* pl, Vec<ZZ_p>& sk, const int n, const ZZ& q, const ZZ& p, co
   }
   // computation of public keys sender_pk = h^sk
   ZZ r;
+    cout << "push(p), p = " << p << endl;
   ZZ_pPush push(p);
+    cout << "push(p), p = " << p << endl;
   clock_t time = 0, timetmp;
   for (int i = 0; i < n; i++) {
     r = rep(sk[i]);
@@ -176,7 +178,9 @@ clock_t distribution(const int l, const int t, const Vec<ZZ_p>& alpha, pl_t *pl)
   }
   timetmp = clock();
   time += clock() - timetmp;
+    cout << "push(pl->p), pl->p = " << pl->p << endl;
   ZZ_pPush push(pl->p);
+    cout << "push(pl->p), pl->p = " << pl->p << endl;
   // computation of encrypted shares
   for (int i = 0; i < pl->n; i++) {
     repzz = rep(s[i+l]);
@@ -185,28 +189,16 @@ clock_t distribution(const int l, const int t, const Vec<ZZ_p>& alpha, pl_t *pl)
     time += clock() - timetmp;
   }
   // computation of the proof ldei
-
-  cout << "\n\nHELLO THIS IS BEFORE PROOF!" << endl;
+  pl->ld.print();
+  cout << "BEFORE PROOF:" << endl;
   cout << "q: " << pl->q << endl;
   cout << "p: " << pl->p << endl;
-  cout << "pk: " << pl->pk << endl;
-  cout << "alpha: " << alpha << endl;
-  cout << "deg: " << deg << endl;
-  cout << "sighat: " << pl->sighat << endl;
-  cout << "p: " << P << endl;
-  cout << "LDEI:" << endl;
-  pl->ld.print();
-  pl->ld.prove(pl->q, pl->p, pl->pk, alpha, deg, pl->sighat, P);
-    cout << "\n\nHELLO THIS IS JUST AFTER PROOF!" << endl;
-    cout << "q: " << pl->q << endl;
-    cout << "p: " << pl->p << endl;
     cout << "pk: " << pl->pk << endl;
     cout << "alpha: " << alpha << endl;
-    cout << "deg: " << deg << endl;
+    cout << "deq: " << deg << endl;
     cout << "sighat: " << pl->sighat << endl;
-    cout << "p: " << P << endl;
-    cout << "LDEI:" << endl;
-    pl->ld.print();
+    cout << "P: " << P << endl;
+  //pl->ld.prove(pl->q, pl->p, pl->pk, alpha, deg, pl->sighat, P);
   // set the variables in the public ledger
   pl->l = l;
   pl->t = t;
@@ -264,11 +256,18 @@ void pvss_test(const int n, const int size) {
   findprime(q,p,k,size-k);
   int t = n/3;
   int l = n-2*t;
+    cout << "t" << t << endl;
+    cout << "l" << l << endl;
+    cout << "q" << q << endl;
+    cout << "p" << p << endl;
   ZZ_p::init(p);
   ZZ_p gen;
   generator(gen,p);
+    cout << "gen" << gen << endl;
   ZZ_p h;
   power(h,gen,2);
+
+  cout << "THIS IS H!!!!!!! " << h << endl;
 
   // SET UP
   ZZ_p::init(q);
@@ -289,29 +288,18 @@ void pvss_test(const int n, const int size) {
   dist_time = distribution(l,t,alpha,pl);
 
   // VERIFICATION
-    cout << "\n\nHELLO THIS IS JUST BEFORE VERIFY!" << endl;
-    cout << "q: " << pl->q << endl;
-    cout << "p: " << pl->p << endl;
+    cout << "BEFORE VERIFY:" << endl;
+    cout << "q: " << q << endl;
+    cout << "p: " << p << endl;
     cout << "pk: " << pl->pk << endl;
     cout << "alpha: " << alpha << endl;
-    cout << "deg: " << (t+l) << endl;
+    cout << "deq: " << (t+l) << endl;
     cout << "sighat: " << pl->sighat << endl;
-    cout << "LDEI:" << endl;
-    pl->ld.print();
-  if (!(pl->ld.verify(q, p, pl->pk, alpha, t+l, pl->sighat))) {
+  /*if (!(pl->ld.verify(q, p, pl->pk, alpha, t+l, pl->sighat))) {
     cout << "The proof LDEI isn't correct..." << endl;
     pl_free(pl);
     return;
-  }
-    cout << "\n\nHELLO THIS IS JUST AFTER VERIFY!" << endl;
-    cout << "q: " << pl->q << endl;
-    cout << "p: " << pl->p << endl;
-    cout << "pk: " << pl->pk << endl;
-    cout << "alpha: " << alpha << endl;
-    cout << "deg: " << (t+l) << endl;
-    cout << "sighat: " << pl->sighat << endl;
-    cout << "LDEI:" << endl;
-    pl->ld.print();
+  }*/
 
   // SHARE OF DECRYPTED SHARES AND PROOF DLEQ
   // choice of  the reconstructing parties
@@ -351,17 +339,17 @@ void pvss_test(const int n, const int size) {
     pl->sigtilde[i] = x[i][1];
     g[i][0]= pl->pk[id-1];
     pl->dl.emplace_back();
-    pl->dl[i].prove(q,p,g[i],x[i],invsk[i]);
+    //pl->dl[i].prove(q,p,g[i],x[i],invsk[i]);
   }
   invsk.kill();
 
   // VERIFICATION OF PROOF DLEQ
   for (int i = 0; i < r; i ++) {
-    if(!pl->dl[i].verify(q,p,g[i],x[i])) {
+    /*if(!pl->dl[i].verify(q,p,g[i],x[i])) {
       cout << "At least one of the proofs DLEQ isn't correct..." << endl;
       pl_free(pl);
       return;
-    }
+    }*/
   }
 
   // RECONSTRUCTION
@@ -413,29 +401,73 @@ void pvss_test(const int n, const int size) {
 int n; // number of participants
 int t; // threshold
 int l; // number of secrets
-int r; // number of participants who want to reconstruct the secrets
+//int r; // number of participants who want to reconstruct the secrets
+int k; // 2^k divides q-1
 ZZ q; // order of the group G_q
-ZZ p; // p = 2q+1
-ZZ_p h; // generator of G_q
+//ZZ p; // p = 2q+1
+//ZZ_p h; // generator of G_q
 
 struct LedgerMessage {
+    /*
+     * ledger message types:
+     * 0: public key
+     * 1: encrypted share
+     * 2: LDEI.a
+     * 3: LDEI.e
+     * 4: LDEI.z
+     * 5: sharing polynomial
+     * 6: decrypted share
+     * 7: DLEQ.a
+     * 8: DLEQ.e
+     * 9: DLEQ.z
+     * 1000: party has posted their encrypted shares + LDEI proof
+     * 1001: party has posted their sharing polynomial
+     * 1002: party has posted their decrypted shares + DLEQ proofs
+     */
+
     ZZ_p sender_pk; // id of the party who posted this on the ledger
     ZZ_p recipient_pk; // id of intended receiver (-1 if none)
-    int type; // 0: sender_pk, 1: enc. share, 2: LDEI.a, 3: LDEI.e, 4: LDEI.z, 5: sharing polynomial
-    ZZ_p value;
+    int type;
+    ZZ value;
 
-    LedgerMessage(const ZZ_p &_sender_pk, const ZZ_p &_recipient_pk, int _type, const ZZ_p &_value) {
+    ZZ_p get_ZZ_p_value() {
+        return to_ZZ_p(value);
+    }
+
+    void print() {
+        cout << endl;
+        cout << "sender_pk: " << sender_pk << endl;
+        cout << "recipient_pk: " << recipient_pk << endl;
+        cout << "type: " << type << endl;
+        cout << "value: " << value << endl;
+    }
+
+    LedgerMessage(const ZZ_p &_sender_pk, const ZZ_p &_recipient_pk, int _type, const ZZ &_value) {
         sender_pk = _sender_pk;
         recipient_pk = _recipient_pk;
         type = _type;
         value = _value;
     }
 
-    LedgerMessage(const ZZ_p &_sender_pk, int _type, const ZZ_p &_value) {
+    LedgerMessage(const ZZ_p &_sender_pk, int _type, const ZZ &_value) {
         sender_pk = _sender_pk;
         recipient_pk = ZZ_p(0);
         type = _type;
         value = _value;
+    }
+
+    LedgerMessage(const ZZ_p &_sender_pk, const ZZ_p &_recipient_pk, int _type, const ZZ_p &_value) {
+        sender_pk = _sender_pk;
+        recipient_pk = _recipient_pk;
+        type = _type;
+        value = rep(_value);
+    }
+
+    LedgerMessage(const ZZ_p &_sender_pk, int _type, const ZZ_p &_value) {
+        sender_pk = _sender_pk;
+        recipient_pk = ZZ_p(0);
+        type = _type;
+        value = rep(_value);
     }
 };
 
@@ -472,7 +504,7 @@ public:
         return messages; //replace this with db
     }
 
-    vector<LedgerMessage> get_messages_with_sender_pk(const ZZ_p &sender_pk) {
+    vector<LedgerMessage> get_messages_with_sender(const ZZ_p &sender_pk) {
         vector<LedgerMessage> results;
         for (auto & message : messages) {
             if (message.sender_pk == sender_pk) {
@@ -482,7 +514,7 @@ public:
         return results;
     }
 
-    vector<LedgerMessage> get_messages_with_recipient_pk(const ZZ_p &recipient_pk) {
+    vector<LedgerMessage> get_messages_with_recipient(const ZZ_p &recipient_pk) {
         vector<LedgerMessage> results;
         for (auto & message : messages) {
             if (message.recipient_pk == recipient_pk) {
@@ -512,10 +544,40 @@ public:
         return results;
     }
 
-    vector<LedgerMessage> get_messages_with_sender_pk_type(const ZZ_p &sender_pk, int type) {
+    vector<LedgerMessage> get_messages_with_sender_type(const ZZ_p &sender_pk, int type) {
         vector<LedgerMessage> results;
         for (auto & message : messages) {
             if (message.sender_pk == sender_pk && message.type == type) {
+                results.emplace_back(message);
+            }
+        }
+        return results;
+    }
+
+    vector<LedgerMessage> get_messages_with_recipient_type(const ZZ_p &recipient_pk, int type) {
+        vector<LedgerMessage> results;
+        for (auto & message : messages) {
+            if (message.recipient_pk == recipient_pk && message.type == type) {
+                results.emplace_back(message);
+            }
+        }
+        return results;
+    }
+
+    ZZ_p get_value_with_sender_recipient_type(const ZZ_p &sender_pk, const ZZ_p &recipient_pk, int type) {
+        for (auto & message : messages) {
+            if (message.sender_pk == sender_pk && message.recipient_pk == recipient_pk && message.type == type) {
+                return message.get_ZZ_p_value();
+            }
+        }
+        cout << "could not find result" << endl;
+        return ZZ_p(0);
+    }
+
+    vector<LedgerMessage> get_dleq_messages(const ZZ_p &sender_pk, const ZZ_p &recipient_pk) {
+        vector<LedgerMessage> results;
+        for (auto & message : messages) {
+            if (message.sender_pk == sender_pk && message.recipient_pk == recipient_pk && message.type >= 7 && message.type <= 9) {
                 results.emplace_back(message);
             }
         }
@@ -526,23 +588,13 @@ public:
 
 Ledger ledger;
 
-
-/*int sender_pk;
-Vec<ZZ_p> pk_all;
-ZZ_p sk;
-ZZ_p sender_pk;
-ZZ_pX P;
-Vec<ZZ_p> sighat;
-LDEI ld;
-vector<int> c; // set of parties who have posted a valid sharing*/
-
 void generate_secret_key(ZZ_p &sk) {
     random(sk);
     while (IsZero(sk))
         random(sk);
 }
 
-void generate_public_key(const ZZ_p& sk, ZZ_p &pk) {
+void generate_public_key(const ZZ_p& sk, ZZ_p &pk, const ZZ_p &h) {
     power(pk, h, rep(sk));
 }
 
@@ -551,7 +603,7 @@ void read_all_public_keys(Vec<ZZ_p> &pk_list) {
     vector<LedgerMessage> pk_messages = ledger.get_messages_with_type(0);
 
     for (int i = 0; i < pk_messages.size(); i++) {
-        pk_list[i] = pk_messages[i].value;
+        pk_list[i] = pk_messages[i].get_ZZ_p_value();
     }
 }
 
@@ -563,9 +615,9 @@ void post_encrypted_shares_to_ledger(const ZZ_p &sender_pk, const Vec<ZZ_p> &pk_
 
 void read_encrypted_shares_from_ledger(const ZZ_p &sender_pk, Vec<ZZ_p> &sighat) {
     sighat.SetLength(n);
-    vector<LedgerMessage> msg = ledger.get_messages_with_sender_pk_type(sender_pk, 1);
+    vector<LedgerMessage> msg = ledger.get_messages_with_sender_type(sender_pk, 1);
     for (int j = 0; j < msg.size(); j++) {
-        sighat[j] = msg[j].value;
+        sighat[j] = msg[j].get_ZZ_p_value();
     }
 }
 
@@ -586,13 +638,13 @@ LDEI read_LDEI_from_ledger(const ZZ_p &sender_pk) {
     a.SetLength(n);
     ZZ_p e;
     ZZ_pX z;
-    for (const auto& lm : ldei_messages) {
+    for (LedgerMessage lm : ldei_messages) {
         if (lm.type == 2) {
-            a[ai++] = lm.value;
+            a[ai++] = lm.get_ZZ_p_value();
         } else if (lm.type == 3) {
-            e = lm.value;
+            e = lm.get_ZZ_p_value();
         } else {
-            SetCoeff(z, zi++, lm.value);
+            SetCoeff(z, zi++, lm.get_ZZ_p_value());
         }
     }
     return LDEI(a, e, z);
@@ -604,28 +656,24 @@ ZZ_pX generate_random_polynomial(int deg) {
     return pol;
 }
 
-void distribution_alb(const ZZ_pX &P, const Vec<ZZ_p> &pk_all, Vec<ZZ_p> &secrets, Vec<ZZ_p> &sighat, LDEI &ld) {
+void distribution_alb(const ZZ_pX &P, const Vec<ZZ_p> &pk_all, Vec<ZZ_p> &s, Vec<ZZ_p> &sighat, LDEI &ld) {
     if (t < 1 || t > n)
         return;
     // conputation of the exponents and shamir's shares
-    //secrets.SetLength(n+l);
+    //s.SetLength(n+l);
     ZZ_p tmp;
     ZZ repzz;
-    clock_t time = 0, timetmp;
     for (int i = -l+1; i <= n; i++) {
         tmp = ZZ_p(i);
-        eval(secrets[i + l - 1], P, tmp);
+        eval(s[i + l - 1], P, tmp);
     }
 
-    timetmp = clock();
-    time += clock() - timetmp;
-    ZZ_pPush push(p);
     // computation of encrypted shares
     for (int i = 0; i < n; i++) {
-        repzz = rep(secrets[i+l]);
-        timetmp = clock();
+        repzz = rep(s[i + l]);
+        //cout << "s is " << repzz << endl;
         power(sighat[i], pk_all[i], repzz);
-        time += clock() - timetmp;
+        //cout << "enc. share is " << sighat[i] << endl;
     }
 
     // computation of the proof ldei
@@ -634,15 +682,36 @@ void distribution_alb(const ZZ_pX &P, const Vec<ZZ_p> &pk_all, Vec<ZZ_p> &secret
     for (int i = 0; i < n; i++) {
         alpha[i] = ZZ_p(i + 1);
     }
+/*
+    cout << "BEFORE PROOF:" << endl;
+    cout << "q: " << q << endl;
+    cout << "p: " << p << endl;
+    cout << "pk: " << pk_all << endl;
+    cout << "alpha: " << alpha << endl;
+    cout << "deq: " << (t+l) << endl;
+    cout << "sighat: " << sighat << endl;*/
+    ld.prove(q, pk_all, alpha, t + l, sighat, P);
+    ld.print();
+    /*
+    cout << "BEFORE VERIFY:" << endl;
+    cout << "q: " << q << endl;
+    cout << "p: " << p << endl;
+    cout << "pk: " << pk_all << endl;
+    cout << "alpha: " << alpha << endl;
+    cout << "deq: " << (t+l) << endl;
+    cout << "sighat: " << sighat << endl;
+     */
 
-    ld.prove(q, p, pk_all, alpha, t + l, sighat, P);
+    cout << ld.verify(q, pk_all, alpha, t + l, sighat) << endl;
     // clean up
-    //s.kill();
+    s.kill();
 }
 
 void verify_ldei(const Vec<ZZ_p> &alpha, const Vec<ZZ_p> &pk_all, vector<ZZ_p> &valid_sharings_pids) {
     for (int i = 0; i < n; i++) {
-        LDEI ldei = read_LDEI_from_ledger(pk_all[i]);
+        cout << "ldei for pk = " << pk_all[i] << endl;
+        LDEI ld = read_LDEI_from_ledger(pk_all[i]);
+        ld.print();
         //cout << "now verifying ldei for pk = " << pk_all[i] << endl;
         Vec<ZZ_p> sighat;
         read_encrypted_shares_from_ledger(pk_all[i], sighat);
@@ -660,25 +729,26 @@ void post_sharing_polynomial_to_ledger(const ZZ_p &sender_pk, ZZ_pX &pol) {
 
 void read_sharing_polynomial_from_ledger(const ZZ_p &sender_pk, ZZ_pX &polynomial) {
     int index = 0;
-    for (const LedgerMessage& lm: ledger.get_messages_with_sender_pk_type(sender_pk, 5)) {
-        SetCoeff(polynomial, index++, lm.value);
+    for (LedgerMessage lm: ledger.get_messages_with_sender_type(sender_pk, 5)) {
+        SetCoeff(polynomial, index++, lm.get_ZZ_p_value());
     }
 }
 
 void verify_sharing_polynomials(const vector<ZZ_p> &valid_sharings_pks, const Vec<ZZ_p> &pk_all, vector<ZZ_p> &invalid_sharing_polynomials_pks, Mat<ZZ_p> &S) {
-    for (int i = 0; i < n; i++) {
+    for (int i = 0; i < valid_sharings_pks.size(); i++) {
         ZZ_p pk = valid_sharings_pks[i];
         ZZ_pX polynomial;
         read_sharing_polynomial_from_ledger(pk, polynomial);
         Vec<ZZ_p> sighat;
         sighat.SetLength(n);
+
         LDEI ld;
         distribution_alb(polynomial, pk_all, S[i], sighat, ld);
         //LDEI posted_ldei = read_LDEI_from_ledger(pk);
         Vec<ZZ_p> posted_sighat;
         read_encrypted_shares_from_ledger(pk, posted_sighat);
-        //cout << "the posted sighat was: " << posted_sighat << endl;
-        //cout << "the reproduced sighat is: " << sighat << endl;
+        cout << "the posted sighat was: " << posted_sighat << endl;
+        cout << "the reproduced sighat is: " << sighat << endl;
         //cout << "the posted LDEI was:" << endl;
         //posted_ldei.print();
         //cout << "the reproduced LDEI is:" << endl;
@@ -690,22 +760,135 @@ void verify_sharing_polynomials(const vector<ZZ_p> &valid_sharings_pks, const Ve
     }
 }
 
+void get_encrypted_shares_for_recipient(const ZZ_p &pk, vector<ZZ_p> &encrypted_shares) {
+    for (auto &result : ledger.get_messages_with_recipient_type(pk, 1)) {
+        encrypted_shares.emplace_back(result.get_ZZ_p_value());
+    }
+}
+
+void post_DLEQ_to_ledger(const ZZ_p &sender_pk, const ZZ_p &receiver_pk, const DLEQ &dl) {
+    for (int i = 0; i < dl.a.length(); i++) {
+        ledger.post_to_ledger(LedgerMessage(sender_pk, receiver_pk, 7, dl.a[i]));
+    }
+    ledger.post_to_ledger(LedgerMessage(sender_pk, receiver_pk, 8, dl.e));
+    ledger.post_to_ledger(LedgerMessage(sender_pk, receiver_pk, 9, dl.z));
+}
+
+DLEQ read_DLEQ_from_ledger(const ZZ_p &sender_pk, const ZZ_p &recipient_pk) {
+    int ai = 0; // indices
+    vector<LedgerMessage> dleq_messages = ledger.get_dleq_messages(sender_pk, recipient_pk);
+
+    Vec<ZZ_p> a;
+    a.SetLength(2);
+    ZZ_p e;
+    ZZ z;
+    for (LedgerMessage lm : dleq_messages) {
+        if (lm.type == 7) {
+            a[ai++] = lm.get_ZZ_p_value();
+        } else if (lm.type == 8) {
+            e = lm.get_ZZ_p_value();
+        } else {
+            z = lm.value;
+        }
+    }
+
+    return DLEQ(a, e, z);
+}
+
+void decrypt_shares(const ZZ_p &sk, const ZZ_p &pk, const vector<ZZ_p> &c_a, DLEQ &dl, const ZZ_p &h) {
+
+    for (const ZZ_p& c_a_pk : c_a) {
+        cout << "dishonest" << endl;
+        ZZ_p encrypted_share = ledger.get_value_with_sender_recipient_type(c_a_pk, pk, 1);
+        cout << "hello1" << endl;
+        ZZ_p inv_sk;
+        cout << "sk = " << sk << endl;
+        inv(inv_sk, sk);
+        cout << "hello2" << endl;
+        ZZ_p decrypted_share;
+        power(decrypted_share, encrypted_share, rep(inv_sk));
+
+        Vec<ZZ_p> g;
+        g.SetLength(2);
+        g[0] = pk;
+        g[1] = encrypted_share;
+        Vec<ZZ_p> x;
+        x.SetLength(2);
+        x[0] = h;
+        x[1] = decrypted_share;
+
+        cout << "before prove" << endl;
+        dl.print();
+
+        dl.prove(q, g, x, inv_sk);
+
+        cout << "after prove" << endl;
+        dl.print();
+
+        cout << "verify: " << dl.verify(q, g, x) << endl;
+        post_DLEQ_to_ledger(pk, c_a_pk, dl);
+
+        DLEQ new_dl = read_DLEQ_from_ledger(pk, c_a_pk);
+        cout << "after read" << endl;
+        dl.print();
+        cout << "verify: " << dl.verify(q, g, x) << endl;
+
+    }
+}
+
+void alb_reconstruction() {
+
+}
+
+void alternative_output(const Mat<ZZ_p> &S, Mat<ZZ_p> &R, const ZZ_p &h) {
+    Mat<ZZ_p> M;
+    M.SetDims(S.NumRows(), S.NumCols());
+    ZZ w;
+    rootunity(w, pow(2, k), q);
+    ZZ_p w_p = to_ZZ_p(w);
+    for (int j = 0; j < M.NumRows(); j++) {
+        for (int k = 0; k < M.NumCols(); k++) {
+            ZZ_p tmp;
+            power(tmp, w_p, j * k);
+            M[j][k] = tmp;
+        }
+    }
+
+    Mat<ZZ_p> U;
+    mul(U, S, M);
+
+    R.SetDims(S.NumCols(), S.NumCols());
+    for (int j = 0; j < R.NumRows(); j++) {
+        for (int k = 0; k < R.NumCols(); k++) {
+            ZZ_p tmp;
+            power(tmp, h, rep(U[j][k]));
+            R[j][k] = tmp;
+        }
+    }
+}
+
 void alb_test_all(const int _n, const int size) {
+
     // PARAMETERS (global parameters for everybody)
     n = _n;
-    int k = 128;
+    k = 128;
+    ZZ p;
     findprime(q, p, k, size - k);
     t = n / 3;
     l = n - 2 * t;
     cout << "t" << t << endl;
     cout << "l" << l << endl;
     cout << "q" << q << endl;
-    ZZ_p::init(p);
+    cout << "p" << p << endl;
+    ZZ_p::init(q);
     ZZ_p gen;
     generator(gen, p);
+    cout << "gen" << gen << endl;
+    ZZ_p h;
     power(h, gen, 2);
 
-    alb_test(_n, size);
+    cout << "THIS IS H!!!!!!! " << h << endl;
+    alb_test(_n, size, h);
 
 }
 
@@ -715,7 +898,6 @@ struct party_data {
     Vec<ZZ_p> pk_all;
     ZZ_pX polynomial;
     Vec<ZZ_p> sighat;
-    LDEI ld;
     vector<ZZ_p> c; // set of parties who posted valid sharings
     vector<ZZ_p> c_a; // set of parties in c who did not open secrets correctly
 
@@ -727,41 +909,7 @@ struct party_data {
 
 vector<party_data> party;
 
-/*int sender_pk;
-Vec<ZZ_p> pk_all;
-ZZ_p sk;
-ZZ_p sender_pk;
-ZZ_pX P;
-Vec<ZZ_p> sighat;
-LDEI ld;
-vector<int> c; // set of parties who have posted a valid sharing*/
-
-void alb_test(const int _n, const int size) {
-
-    /*Mat<ZZ_p> A;
-    Mat<ZZ_p> B;
-    A.SetDims(3, 2);
-    B.SetDims(2, 3);
-    A[0][0] = 3;
-    A[0][1] = 4;
-    A[1][0] = 7;
-    A[1][1] = 2;
-    A[2][0] = 5;
-    A[2][1] = 9;
-
-    B[0][0] = 3;
-    B[0][1] = 1;
-    B[0][2] = 5;
-    B[1][0] = 6;
-    B[1][1] = 9;
-    B[1][2] = 7;
-
-    Mat<ZZ_p> C;
-    mul(C, A, B);
-
-    cout << C << endl;
-
-    return;*/
+void alb_test(const int _n, const int size, const ZZ_p &h) {
 
     for (int i = 0; i < n; i++) {
         party.emplace_back(party_data());
@@ -771,7 +919,7 @@ void alb_test(const int _n, const int size) {
         // SET UP
         generate_secret_key(party[i].sk);
         //party[i].sk = ZZ_p(27324 + i);
-        generate_public_key(party[i].sk, party[i].pk);
+        generate_public_key(party[i].sk, party[i].pk, h);
         cout << "party " << i << ": my pk is " << party[i].pk << endl;
         ledger.post_to_ledger(LedgerMessage(party[i].pk, 0, party[i].pk));
     }
@@ -791,13 +939,15 @@ void alb_test(const int _n, const int size) {
         cout << "party " << i << " (pk " << party[i].pk << "): my polynomial is " << party[i].polynomial << endl;
         Vec<ZZ_p> secrets;
         secrets.SetLength(n + l);
-        distribution_alb(party[i].polynomial, party[i].pk_all, secrets, party[i].sighat, party[i].ld);
+
+        LDEI ld;
+        distribution_alb(party[i].polynomial, party[i].pk_all, secrets, party[i].sighat, ld);
         post_encrypted_shares_to_ledger(party[i].pk, party[i].pk_all, party[i].sighat);
         /*cout << "my encrypted shares are " << endl;
         for (int j = 0; j < n; j++) {
             cout << party[i].sighat[j] << endl;
         }*/
-        post_ldei_to_ledger(party[i].ld, party[i].pk);
+        post_ldei_to_ledger(ld, party[i].pk);
         cout << endl << endl;
     }
 
@@ -820,6 +970,8 @@ void alb_test(const int _n, const int size) {
         cout << "c is size " << party[i].c.size() << endl;
     }
 
+    return;
+
     for (int i = 0; i < n; i++) {
         post_sharing_polynomial_to_ledger(party[i].pk, party[i].polynomial);
     }
@@ -828,42 +980,21 @@ void alb_test(const int _n, const int size) {
         Mat<ZZ_p> S;
         S.SetDims(party[i].c.size(), n + l);
         verify_sharing_polynomials(party[i].c, party[i].pk_all, party[i].c_a, S);
+        cout << "c size: " << party[i].c.size() << endl;
         cout << "c_a size: " << party[i].c_a.size() << endl;
         // TODO if c_a.size() > 0, reconstruct!
 
-        Mat<ZZ_p> M;
-        M.SetDims(n + l, party[i].c.size());
-        ZZ w;
-        rootunity(w, 16, q);
-        ZZ_p w_p = to_ZZ_p(w);
-        for (int j = 0; j < M.NumRows(); j++) {
-            for (int k = 0; k < M.NumCols(); k++) {
-                ZZ_p tmp;
-                power(tmp, w_p, j * k);
-                M[j][k] = tmp;
-            }
+        DLEQ dl;
+        decrypt_shares(party[i].sk, party[i].pk, party[i].c, dl, h);
+
+        /*Mat<ZZ_p> R;
+        if (party[i].c_a.size() > 0) {
+            alb_reconstruction();
+        } else {
+            alternative_output(R);
         }
 
-        Mat<ZZ_p> U;
-        mul(U, S, M);
-        cout << U.NumRows() << " " << U.NumCols() << endl;
-
-        Mat<ZZ_p> R;
-        cout << party[i].c.size() << endl;
-        cout << (t + l) << endl;
-        R.SetDims(party[i].c.size(), party[i].c.size());
-        for (int j = 0; j < R.NumRows(); j++) {
-            for (int k = 0; k < R.NumCols(); k++) {
-                //cout << "hello1" << endl;
-                ZZ_p tmp;
-                power(tmp, h, rep(U[j][k]));
-                //cout << "hello2" << endl;
-                R[j][k] = tmp;
-                //cout << "hello3" << endl;
-            }
-        }
-
-        cout << R << endl;
+        cout << R << endl;*/
 
     }
 

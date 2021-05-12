@@ -11,7 +11,7 @@ LDEI::LDEI() {
   a.SetLength(0);
 }
 
-LDEI::LDEI(const Vec<ZZ_p>& a, ZZ_p e, ZZ_pX z) {
+LDEI::LDEI(const Vec<ZZ_p>& a, const ZZ_p &e, const ZZ_pX &z) {
     LDEI::a = a;
     LDEI::e = e;
     LDEI::z = z;
@@ -24,9 +24,9 @@ void LDEI::print() {
     cout << "There is no proof here...\n";
 }
 
-void LDEI::prove(const ZZ& q, const ZZ& p, const Vec<ZZ_p>& g, const Vec<ZZ_p>& alpha,
+void LDEI::prove(const ZZ& q, const Vec<ZZ_p>& g, const Vec<ZZ_p>& alpha,
 const long k, const Vec<ZZ_p>& x, const ZZ_pX& P) {
-  ZZ_p::init(q);
+  //ZZ_p::init(q); //TODO remove comment
   // verify entries
   int m = g.length();
   if (alpha.length() != m || x.length() != m || k > m) {
@@ -35,18 +35,14 @@ const long k, const Vec<ZZ_p>& x, const ZZ_pX& P) {
   else {
     //create the vector a
     ZZ_pX R = random_ZZ_pX(k+1);
-    /*ZZ_pX R;
-    for (int i = 0; i < k; i++) {
-        SetCoeff(R, i, ZZ_p(47 + i));
-    }*/
     Vec<ZZ_p> R_eval = eval(R, alpha);
-    ZZ_p::init(p);
+    //ZZ_p::init(p); TODO remove comment
     // create proof structure
     a.SetLength(m);
     for (int i = 0; i < m; i++)
       power(a[i], g[i], rep(R_eval[i]));
     // in ZZq
-    ZZ_pPush push(q);
+    //ZZ_pPush push(q); TODO remove comment
     // create e the digest of the hash function
     hash_ZZp(e, x, a);
     // create z the polynomial of ld
@@ -57,7 +53,7 @@ const long k, const Vec<ZZ_p>& x, const ZZ_pX& P) {
   }
 }
 
-bool LDEI::verify(const ZZ& q, const ZZ& p, const Vec<ZZ_p>& g, const Vec<ZZ_p>& alpha,
+bool LDEI::verify(const ZZ& q, const Vec<ZZ_p>& g, const Vec<ZZ_p>& alpha,
 const long k, const Vec<ZZ_p>& x) {
   // test of entries
   int m = a.length();
@@ -70,7 +66,7 @@ const long k, const Vec<ZZ_p>& x) {
     cout << "Verification not passed: bad degree of z\n";
     return false;
   }
-  ZZ_p::init(q);
+  //ZZ_p::init(q); TODO remove comment
   // test of e = hash(x,a)
   ZZ_p hashzz;
   hash_ZZp(hashzz, x, a);
@@ -80,15 +76,15 @@ const long k, const Vec<ZZ_p>& x) {
   }
   // test of x_i^e * a_i = g_i^z(alpha_i)
   Vec<ZZ_p> zi = eval(z, alpha);
-  ZZ_pPush push(p);
+  //ZZ_pPush push(p); TODO remove comment
   ZZ_p tmp1, tmp2, tmp3;
   for (int i = 0; i < m; i++) {
     power(tmp2, g[i], rep(zi[i]));
     power(tmp3, x[i], rep(e));
     mul(tmp1, tmp3, a[i]);
-    //cout << "\n\ntmp2: " << tmp2 << endl;
-    //cout << "tmp3: " << tmp3 << endl;
-    //cout << "tmp1: " << tmp1 << endl;
+    cout << "\n\ntmp2: " << tmp2 << endl;
+    cout << "tmp3: " << tmp3 << endl;
+    cout << "tmp1: " << tmp1 << endl;
     if (tmp2 != tmp1) {
       cout << "Verification not passed: bad a_i\n";
       //cout << "btw i is " << i << endl;
@@ -97,6 +93,7 @@ const long k, const Vec<ZZ_p>& x) {
     }
   }
   zi.kill();
+  cout << "PASSED!!" << endl;
   return true;
 }
 
@@ -108,6 +105,12 @@ DLEQ::DLEQ() {
   a.SetLength(0);
 }
 
+DLEQ::DLEQ(const Vec<ZZ_p>& a, const ZZ_p &e, const ZZ &z) {
+    DLEQ::a = a;
+    DLEQ::e = e;
+    DLEQ::z = z;
+}
+
 void DLEQ::print() {
   if (a.length() > 0)
     cout << "\n a = " << a << "\n e = " << e << "\n z = " << z << endl;
@@ -115,21 +118,21 @@ void DLEQ::print() {
     cout << "There is no proof here...\n";
 }
 
-void DLEQ::prove(const ZZ& q, const ZZ& p, const Vec<ZZ_p>& g, const Vec<ZZ_p>& x,
+void DLEQ::prove(const ZZ& q, const Vec<ZZ_p>& g, const Vec<ZZ_p>& x,
 ZZ_p& alpha) {
   int m = g.length();
   if (x.length() != m) {
     a.SetLength(0);
   }
   else {
-    ZZ_p::init(q);
+    //ZZ_p::init(q);
     ZZ_p w = random_ZZ_p();
-    ZZ_p::init(p);
+    //ZZ_p::init(p);
     a.SetLength(m);
     for (int i = 0; i < m; i++) {
       power(a[i],g[i],rep(w));
     }
-    ZZ_pPush push(q);
+    //ZZ_pPush push(q);
     hash_ZZp(e,g,x,a);
     ZZ tmp;
     mul(tmp,rep(alpha),rep(e));
@@ -137,14 +140,14 @@ ZZ_p& alpha) {
   }
 }
 
-bool DLEQ::verify(const ZZ& q, const ZZ& p, const Vec<ZZ_p>& g, const Vec<ZZ_p>& x) {
+bool DLEQ::verify(const ZZ& q, const Vec<ZZ_p>& g, const Vec<ZZ_p>& x) {
   // test of entries
   int m = a.length();
   if (x.length() != m || g.length() != m) {
     cout << "Verification not passed: bad length\n";
     return false;
   }
-  ZZ_p::init(q);
+  //ZZ_p::init(q);
   // test of digest e
   ZZ_p hashzz;
   hash_ZZp(hashzz,g,x,a);
@@ -153,7 +156,7 @@ bool DLEQ::verify(const ZZ& q, const ZZ& p, const Vec<ZZ_p>& g, const Vec<ZZ_p>&
     return false;
   }
   // test of values of a_i = g_i^z * x_i^e
-  ZZ_pPush push(p);
+  //ZZ_pPush push(p);
   ZZ_p tmp1, tmp2, tmp3;
   for (int i = 0; i < m; i++) {
     power(tmp2, g[i], z);
